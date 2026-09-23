@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Terceros
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     # Apps del proyecto
     "apps.core",
     "apps.accounts",
@@ -149,5 +150,6 @@ SIMPLE_JWT = {
 }
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")
 
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")

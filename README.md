@@ -26,6 +26,22 @@ python manage.py runserver
 - Health check: http://localhost:8000/api/health/
 - JWT: `POST /api/auth/token/` y `POST /api/auth/token/refresh/`
 
+### Endpoints de autenticación
+
+| Método | Ruta | Quién |
+|---|---|---|
+| POST | `/api/auth/register/` | Público (se crea como estudiante) |
+| POST | `/api/auth/token/` | Público (login) |
+| POST | `/api/auth/logout/` | Autenticado (envía `refresh`) |
+| GET | `/api/auth/me/` | Autenticado |
+| POST | `/api/auth/password-reset/` | Público (envía `email`) |
+| POST | `/api/auth/password-reset/confirm/` | Público (`uid`, `token`, `new_password`) |
+| GET | `/api/auth/users/` | Admin |
+| PATCH | `/api/auth/users/<id>/role/` | Admin (`global_role`) |
+
+En desarrollo el correo de recuperación se imprime en la consola del `runserver`.
+Permisos reutilizables en `apps/accounts/permissions.py`: `IsAdmin`, `IsEvaluator`, `IsStudent`.
+
 Correr las pruebas: `python manage.py test`
 
 ## Estructura
