@@ -1,9 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from .models import Deliverable, ProjectMembership
 
-from .models import ProjectMembership
+from .models import Deliverable, ProjectMembership
 
 User = get_user_model()
 Role = ProjectMembership.ProjectRole
@@ -39,6 +38,7 @@ def add_member(project, actor, email, role=Role.MEMBER, responsibilities=""):
     return ProjectMembership.objects.create(
         project=project, user=user, role=role, responsibilities=responsibilities
     )
+
 
 def _is_last_leader(membership):
     """True si esta membresía es el único líder del proyecto."""
@@ -85,6 +85,7 @@ def remove_member(membership, actor):
         deliverable.assignees.remove(membership.user)
 
     membership.delete()
+
 
 def update_responsibilities(membership, actor, text):
     """El líder define qué le toca a cada integrante."""
