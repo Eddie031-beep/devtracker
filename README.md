@@ -45,6 +45,7 @@ python manage.py runserver
 
 En desarrollo el correo de recuperación se imprime en la consola del `runserver`.
 Permisos reutilizables en `apps/accounts/permissions.py`: `IsAdmin`, `IsEvaluator`, `IsStudent`.
+
 ### Endpoints de proyectos
 
 | Método | Ruta | Quién |
@@ -86,11 +87,11 @@ apps/accounts/     User personalizado con rol global (student / evaluator / admi
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
 ```
 
-✅ Completa
+## Plan por etapas
 
 | Etapa | Contenido | Estado |
 |---|---|---|
-| **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | 🚧 En curso |
+| **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | ✅  Completa |
 | 2. Trazabilidad y entregables | Historial de versiones, auditoría inmutable, integración GitHub | ⏳ |
 | 3. Métricas y evaluación | Métricas por integrante, dashboard por rol, evaluación | ⏳ |
 | 4. Should / Could Have | Notificaciones, reportes, OAuth2, docs de API, extras | ⏳ |
