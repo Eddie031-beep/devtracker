@@ -82,7 +82,7 @@ def filter_milestones_for_user(queryset: QuerySet, user):
         return queryset.none()
     if is_global_admin(user):
         return queryset
-    return queryset.filter(project__memberships__user=user).distinct()
+    return queryset.filter(project__deleted_at__isnull=True, project__memberships__user=user).distinct()
 
 
 def filter_deliverables_for_user(queryset: QuerySet, user):
@@ -90,4 +90,8 @@ def filter_deliverables_for_user(queryset: QuerySet, user):
         return queryset.none()
     if is_global_admin(user):
         return queryset
-    return queryset.filter(milestone__project__memberships__user=user).distinct()
+    return queryset.filter(
+        milestone__deleted_at__isnull=True,
+        milestone__project__deleted_at__isnull=True,
+        milestone__project__memberships__user=user,
+    ).distinct()
