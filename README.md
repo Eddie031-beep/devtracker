@@ -7,7 +7,7 @@ Plataforma de Gestión y Auditoría de Proyectos de Software — Proyecto Final 
 
 ## Stack
 
-Django 5.1 · Django REST Framework · SimpleJWT · PostgreSQL · Celery + Redis
+Django 5.1 · Django REST Framework · SimpleJWT · PostgreSQL · Celery + Redis · Railway (gunicorn + WhiteNoise)
 
 ## Puesta en marcha
 > ⚠️ **Problemas comunes**
@@ -78,10 +78,39 @@ El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
 
+## Despliegue (Railway, staging)
+
+La configuración está en el repo: `railway.json` (web) y `railway.worker.json` (Celery).
+En cada deploy Railway corre `migrate` antes de arrancar, junta los estáticos (los sirve WhiteNoise)
+y levanta `gunicorn`. Si `/api/health/` no responde 200, el deploy no se publica.
+
+**Primera vez (lo hace el líder):**
+
+1. En Railway: *New Project → Deploy from GitHub repo* → `devtracker`.
+   En *Settings* del servicio, rama `develop` (cada merge a `develop` se despliega solo).
+2. *+ New → Database*: agrega **PostgreSQL** y **Redis** al mismo proyecto.
+3. En *Variables* del servicio web:
+
+   | Variable | Valor |
+   |---|---|
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+   | `REDIS_URL` | `${{Redis.REDIS_URL}}` |
+   | `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
+   | `DEBUG` | `False` |
+
+4. *Settings → Networking → Generate Domain*. Railway expone ese dominio en
+   `RAILWAY_PUBLIC_DOMAIN` y `settings.py` lo agrega solo a `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`.
+5. Crear el admin: `railway ssh` (en el servicio web) y luego `python manage.py createsuperuser`.
+
+**Worker de Celery** (cuando haya tareas, issue #21): *+ New → GitHub repo* con el mismo repo,
+en *Settings → Config-as-code* apunta a `railway.worker.json` y copia las mismas variables.
+
+URL de staging: _pendiente_
+
 ## Estructura
 
 ```
-config/            settings, urls
+config/            settings, urls, app de Celery
 apps/core/         modelos base (TimeStampedModel, SoftDeleteModel), health check
 apps/accounts/     User personalizado con rol global (student / evaluator / admin)
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
