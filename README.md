@@ -92,7 +92,7 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 | Etapa | Contenido | Estado |
 |---|---|---|
 | **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | ✅  Completa |
-| 2. Trazabilidad y entregables | Historial de versiones, auditoría inmutable, integración GitHub | ⏳ |
+| **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | 🚧 En curso |
 | 3. Métricas y evaluación | Métricas por integrante, dashboard por rol, evaluación | ⏳ |
 | 4. Should / Could Have | Notificaciones, reportes, OAuth2, docs de API, extras | ⏳ |
 
@@ -106,6 +106,20 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 | #3 | CRUD de proyectos, hitos y entregables | Brayan Quintero, Harold Morales | #10, #11 |
 | #4 | Asignación de integrantes y responsabilidades | Eliecias Cubilla | #9, #12 |
 | #5 | Flujo de estados de entregables | Eddie Man | #8, #13 |
+
+### Etapa 2: quién hace qué
+
+| Issue | Tarea | Responsable | Depende de | PR |
+|---|---|---|---|---|
+| #17 | Despliegue en Railway (staging) | Eddie Man | — | — |
+| #18 | Auditoría inmutable | Harold Morales | — | — |
+| #19 | Historial de versiones de entregables | Brayan Quintero | #18 | — |
+| #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | — |
+| #21 | Integración GitHub (parte 2): sincronización y vínculo con integrantes | Eliecias Cubilla | #20 | — |
+
+Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
+#19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):
+avisen al grupo antes de subir migraciones.
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
