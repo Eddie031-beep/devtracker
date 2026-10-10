@@ -80,32 +80,37 @@ Correr las pruebas: `python manage.py test`
 
 ## Despliegue (Railway, staging)
 
-La configuración está en el repo: `railway.json` (web) y `railway.worker.json` (Celery).
-En cada deploy Railway corre `migrate` antes de arrancar, junta los estáticos (los sirve WhiteNoise)
-y levanta `gunicorn`. Si `/api/health/` no responde 200, el deploy no se publica.
+URL de staging: https://devtracker-production-fd93.up.railway.app
 
-**Primera vez (lo hace el líder):**
+Cada merge a `develop` se despliega solo. Antes de publicar, Railway corre `migrate`;
+si `/api/health/` no responde 200, mantiene la versión anterior.
 
-1. En Railway: *New Project → Deploy from GitHub repo* → `devtracker`.
-   En *Settings* del servicio, rama `develop` (cada merge a `develop` se despliega solo).
-2. *+ New → Database*: agrega **PostgreSQL** y **Redis** al mismo proyecto.
-3. En *Variables* del servicio web:
+**Configuración del servicio `devtracker`** (en *Settings* de Railway, no en el repo):
 
-   | Variable | Valor |
-   |---|---|
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-   | `REDIS_URL` | `${{Redis.REDIS_URL}}` |
-   | `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
-   | `DEBUG` | `False` |
+| Campo | Valor |
+|---|---|
+| Source → Branch | `develop` |
+| Custom Start Command | `sh -c 'python manage.py collectstatic --noinput && gunicorn config.wsgi --access-logfile -'` |
+| Pre-deploy step | `python manage.py migrate --noinput` |
+| Healthcheck Path | `/api/health/` |
+| Networking | dominio generado (`settings.py` lo agrega solo a `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`) |
 
-4. *Settings → Networking → Generate Domain*. Railway expone ese dominio en
-   `RAILWAY_PUBLIC_DOMAIN` y `settings.py` lo agrega solo a `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`.
-5. Crear el admin: `railway ssh` (en el servicio web) y luego `python manage.py createsuperuser`.
+**Variables del servicio** (en *Variables → Raw Editor*):
 
-**Worker de Celery** (cuando haya tareas, issue #21): *+ New → GitHub repo* con el mismo repo,
-en *Settings → Config-as-code* apunta a `railway.worker.json` y copia las mismas variables.
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
+| `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
+| `DEBUG` | `False` |
 
-URL de staging: _pendiente_
+> ⚠️ Railway sugiere variables leídas de `.env.example` (`localhost`, `DEBUG=True`): no las agregues.
+> Después de cambiar variables hay que darle a **Deploy** para que se apliquen.
+
+**Crear el admin:** servicio `devtracker` → *Console* → `python manage.py createsuperuser`.
+
+**Worker de Celery** (issue #21): nuevo servicio desde el mismo repo, con las mismas variables,
+Start Command `celery -A config worker --loglevel=info`, sin dominio ni health check.
 
 ## Estructura
 
@@ -140,7 +145,7 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 
 | Issue | Tarea | Responsable | Depende de | PR |
 |---|---|---|---|---|
-| #17 | Despliegue en Railway (staging) | Eddie Man | — | — |
+| #17 | Despliegue en Railway (staging) | Eddie Man | — | #24 |
 | #18 | Auditoría inmutable | Harold Morales | — | — |
 | #19 | Historial de versiones de entregables | Brayan Quintero | #18 | — |
 | #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | — |

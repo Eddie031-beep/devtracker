@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -93,6 +94,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+
+# En Railway nunca usar el SQLite de respaldo: se borra en cada deploy
+if env("RAILWAY_ENVIRONMENT_ID", default="") and not env("DATABASE_URL", default=""):
+    raise ImproperlyConfigured("Falta DATABASE_URL en Railway: usa ${{Postgres.DATABASE_URL}}")
 
 DATABASES = {
     # Postgres en docker-compose; SQLite como respaldo para desarrollo rápido
