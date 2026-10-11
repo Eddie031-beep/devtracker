@@ -91,7 +91,8 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 |---|---|
 | Source → Branch | `develop` |
 | Custom Start Command | `sh -c 'python manage.py collectstatic --noinput && gunicorn config.wsgi --access-logfile -'` |
-| Pre-deploy step | `python manage.py migrate --noinput` |
+| Pre-deploy step | `sh -c 'for i in 1 2 3 4 5 6; do python manage.py migrate --noinput && exit 0; echo "Postgres despertando, reintento $i"; sleep 10; done; exit 1'` |
+| Pre-deploy Timeout | `300` |
 | Healthcheck Path | `/api/health/` |
 | Networking | dominio generado (`settings.py` lo agrega solo a `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`) |
 
@@ -106,6 +107,10 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 
 > ⚠️ Railway sugiere variables leídas de `.env.example` (`localhost`, `DEBUG=True`): no las agregues.
 > Después de cambiar variables hay que darle a **Deploy** para que se apliquen.
+
+> ℹ️ En el plan gratis, Postgres y Redis se duermen sin uso (Serverless obligatorio).
+> La primera visita después de un rato puede fallar mientras despiertan: recarga la página.
+> El pre-deploy reintenta el `migrate` hasta 6 veces por eso mismo.
 
 **Crear el admin:** servicio `devtracker` → *Console* → `python manage.py createsuperuser`.
 
@@ -145,7 +150,7 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 
 | Issue | Tarea | Responsable | Depende de | PR |
 |---|---|---|---|---|
-| #17 | Despliegue en Railway (staging) | Eddie Man | — | #24 |
+| #17 | Despliegue en Railway (staging) | Eddie Man | — | #24, #25 |
 | #18 | Auditoría inmutable | Harold Morales | — | — |
 | #19 | Historial de versiones de entregables | Brayan Quintero | #18 | — |
 | #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | — |
