@@ -122,6 +122,7 @@ def remove_member(membership, actor):
     membership.delete()
 
 
+@transaction.atomic
 def update_responsibilities(membership, actor, text):
     """El líder define qué le toca a cada integrante."""
     membership = ProjectMembership.objects.select_related("project").get(pk=membership.pk)
