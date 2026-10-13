@@ -2,6 +2,9 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
+from apps.audit.models import Action
+from apps.audit.services import log_action
+
 from .models import Deliverable, ProjectMembership
 
 User = get_user_model()
@@ -35,9 +38,20 @@ def add_member(project, actor, email, role=Role.MEMBER, responsibilities=""):
     if ProjectMembership.objects.filter(project=project, user=user).exists():
         raise ValidationError(f"{user} ya es integrante de este proyecto.")
 
-    return ProjectMembership.objects.create(
+    membership = ProjectMembership.objects.create(
         project=project, user=user, role=role, responsibilities=responsibilities
     )
+    log_action(
+        actor,
+        Action.MEMBER_ADDED,
+        user,
+        project=project,
+        changes={
+            "role": {"before": None, "after": role},
+            "responsibilities": {"before": None, "after": responsibilities},
+        },
+    )
+    return membership
 
 
 def _is_last_leader(membership):
@@ -65,8 +79,17 @@ def change_role(membership, actor, new_role):
     if new_role != Role.LEADER and _is_last_leader(membership):
         raise ValidationError("El proyecto debe tener al menos un líder. Nombra otro líder antes de cambiar este rol.")
 
+    previous_role = membership.role
     membership.role = new_role
     membership.save(update_fields=["role", "updated_at"])
+    if previous_role != new_role:
+        log_action(
+            actor,
+            Action.MEMBER_ROLE_CHANGED,
+            membership.user,
+            project=membership.project,
+            changes={"role": {"before": previous_role, "after": new_role}},
+        )
     return membership
 
 
@@ -81,9 +104,21 @@ def remove_member(membership, actor):
 
     # Ya no es miembro: deja de estar asignado a los entregables de este proyecto
     deliverables = Deliverable.objects.filter(milestone__project=membership.project, assignees=membership.user)
+    unassigned = []
     for deliverable in deliverables:
         deliverable.assignees.remove(membership.user)
+        unassigned.append(deliverable.pk)
 
+    log_action(
+        actor,
+        Action.MEMBER_REMOVED,
+        membership.user,
+        project=membership.project,
+        changes={
+            "role": {"before": membership.role, "after": None},
+            "unassigned_deliverables": {"before": unassigned, "after": []},
+        },
+    )
     membership.delete()
 
 
@@ -92,8 +127,17 @@ def update_responsibilities(membership, actor, text):
     membership = ProjectMembership.objects.select_related("project").get(pk=membership.pk)
     _check_can_manage(actor, membership.project)
 
+    previous = membership.responsibilities
     membership.responsibilities = text.strip()
     membership.save(update_fields=["responsibilities", "updated_at"])
+    if previous != membership.responsibilities:
+        log_action(
+            actor,
+            Action.MEMBER_RESPONSIBILITIES_CHANGED,
+            membership.user,
+            project=membership.project,
+            changes={"responsibilities": {"before": previous, "after": membership.responsibilities}},
+        )
     return membership
 
 
@@ -116,5 +160,14 @@ def set_deliverable_assignees(deliverable, actor, users):
     if user_ids - member_ids:
         raise ValidationError("Solo se puede asignar el entregable a integrantes del proyecto.")
 
+    previous_ids = sorted(deliverable.assignees.values_list("pk", flat=True))
     deliverable.assignees.set(user_ids)
+    new_ids = sorted(user_ids)
+    if previous_ids != new_ids:
+        log_action(
+            actor,
+            Action.DELIVERABLE_ASSIGNEES_CHANGED,
+            deliverable,
+            changes={"assignees": {"before": previous_ids, "after": new_ids}},
+        )
     return deliverable

@@ -73,6 +73,29 @@ Permisos reutilizables en `apps/accounts/permissions.py`: `IsAdmin`, `IsEvaluato
 | POST | `/api/deliverables/<id>/submit/` | Integrante asignado (el sistema decide a tiempo o tardío) |
 | POST | `/api/deliverables/<id>/status/` | Evaluador o líder (`{"status": "in_review" / "approved" / "rejected"}`) |
 
+### Auditoría inmutable
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET | `/api/projects/<id>/audit/` | Líder, evaluador del proyecto o admin (integrante normal → 403, ajeno → 404) |
+
+Filtros opcionales: `?action=deliverable.submitted&date_from=2026-10-01&date_to=2026-10-31` (fechas `AAAA-MM-DD`). Paginado de 50 en 50 (`?page=2`).
+
+Para registrar algo desde cualquier servicio:
+
+```python
+from apps.audit.models import Action
+from apps.audit.services import log_action
+
+log_action(request.user, Action.DELIVERABLE_STATUS_CHANGED, deliverable,
+           changes={"status": {"before": "submitted", "after": "in_review"}})
+```
+
+Llámalo dentro de la misma transacción que el cambio. Las acciones válidas están en `Action`
+(`apps/audit/models.py`); agregar una nueva **no** requiere migración. El historial de versiones (#19)
+ya tiene reservada `Action.VERSION_CREATED`. Los registros no se pueden editar ni borrar
+(modelo, queryset, admin de solo lectura y triggers en la base de datos).
+
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
 
@@ -124,6 +147,7 @@ config/            settings, urls, app de Celery
 apps/core/         modelos base (TimeStampedModel, SoftDeleteModel), health check
 apps/accounts/     User personalizado con rol global (student / evaluator / admin)
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
+apps/audit/        AuditLog inmutable, `log_action(...)` y endpoint de consulta
 ```
 
 ## Plan por etapas

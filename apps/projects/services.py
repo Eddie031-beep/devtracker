@@ -2,9 +2,14 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.audit.models import Action
+from apps.audit.services import diff, log_action, snapshot
+
 from .models import Deliverable, ProjectMembership
 
 Status = Deliverable.Status
+
+WORKFLOW_FIELDS = ("status", "submitted_at", "is_late")
 
 # Estados desde los que un estudiante puede entregar (o reentregar)
 SUBMITTABLE_STATES = {Status.PENDING, Status.REJECTED}
@@ -31,6 +36,7 @@ def submit_deliverable(deliverable, user, at=None):
             f"No se puede entregar un entregable en estado «{deliverable.get_status_display()}»."
         )
 
+    before = snapshot(deliverable, WORKFLOW_FIELDS)
     now = at or timezone.now()
     deliverable.submitted_at = now
     if deliverable.is_past_due(now):
@@ -40,6 +46,12 @@ def submit_deliverable(deliverable, user, at=None):
         deliverable.status = Status.SUBMITTED
 
     deliverable.save(update_fields=["status", "submitted_at", "is_late", "updated_at"])
+    log_action(
+        user,
+        Action.DELIVERABLE_SUBMITTED,
+        deliverable,
+        changes=diff(before, snapshot(deliverable, WORKFLOW_FIELDS)),
+    )
     return deliverable
 
 
@@ -75,6 +87,13 @@ def change_status(deliverable, user, new_status):
             f"Transición inválida: de «{deliverable.get_status_display()}» a «{Status(new_status).label}»."
         )
 
+    previous_status = deliverable.status
     deliverable.status = new_status
     deliverable.save(update_fields=["status", "updated_at"])
+    log_action(
+        user,
+        Action.DELIVERABLE_STATUS_CHANGED,
+        deliverable,
+        changes={"status": {"before": previous_status, "after": new_status}},
+    )
     return deliverable
