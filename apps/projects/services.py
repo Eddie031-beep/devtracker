@@ -5,7 +5,7 @@ from django.utils import timezone
 from apps.audit.models import Action
 from apps.audit.services import diff, log_action, snapshot
 
-from .models import Deliverable, ProjectMembership
+from .models import Deliverable, DeliverableVersion, ProjectMembership
 
 Status = Deliverable.Status
 
@@ -23,8 +23,40 @@ REVIEW_TRANSITIONS = {
 
 
 @transaction.atomic
-def submit_deliverable(deliverable, user, at=None):
-    """Registra la entrega. El sistema decide si es a tiempo (SUBMITTED) o tardía (LATE)."""
+def create_version(deliverable, author, url, comment=""):
+    """Crea una versión inmutable del entregable calculando su número correlativo y audita la acción."""
+    deliverable = Deliverable.objects.select_for_update().get(pk=deliverable.pk)
+
+    last_version = deliverable.versions.order_by("-number").first()
+    number = (last_version.number + 1) if last_version else 1
+
+    version = DeliverableVersion.objects.create(
+        deliverable=deliverable,
+        number=number,
+        author=author,
+        url=url,
+        comment=comment or "",
+    )
+
+    changes = {
+        "version": {"before": None, "after": number},
+        "url": {"before": None, "after": url},
+    }
+    if comment:
+        changes["comment"] = {"before": None, "after": comment}
+
+    log_action(
+        author,
+        Action.VERSION_CREATED,
+        deliverable,
+        changes=changes,
+    )
+    return version
+
+
+@transaction.atomic
+def submit_deliverable(deliverable, user, at=None, url=None, comment=""):
+    """Registra la entrega y crea una nueva versión si se provee URL. El sistema decide si es a tiempo (SUBMITTED) o tardía (LATE)."""
     # Bloquea la fila para que dos entregas simultáneas no se pisen
     deliverable = Deliverable.objects.select_for_update().get(pk=deliverable.pk)
 
@@ -52,6 +84,10 @@ def submit_deliverable(deliverable, user, at=None):
         deliverable,
         changes=diff(before, snapshot(deliverable, WORKFLOW_FIELDS)),
     )
+
+    if url:
+        create_version(deliverable, user, url=url, comment=comment)
+
     return deliverable
 
 
