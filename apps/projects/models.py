@@ -111,7 +111,7 @@ class DeliverableVersion(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="deliverable_versions"
     )
-    url = models.URLField()
+    url = models.URLField(max_length=2000)
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
