@@ -1,6 +1,7 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Deliverable, Milestone, Project
+from .models import Deliverable, DeliverableVersion, Milestone, Project
 from .permissions import (
     filter_milestones_for_user,
     filter_projects_for_user,
@@ -92,3 +93,21 @@ class DeliverableSerializer(serializers.ModelSerializer):
         if self.instance and value.project_id != self.instance.milestone.project_id:
             raise serializers.ValidationError("No se puede mover un entregable a otro proyecto.")
         return value
+
+
+class DeliverableVersionAuthorSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="get_full_name", read_only=True)
+
+    class Meta:
+        model = get_user_model()
+        fields = ("id", "username", "email", "name")
+        read_only_fields = fields
+
+
+class DeliverableVersionSerializer(serializers.ModelSerializer):
+    author = DeliverableVersionAuthorSerializer(read_only=True)
+
+    class Meta:
+        model = DeliverableVersion
+        fields = ("id", "number", "author", "url", "comment", "created_at")
+        read_only_fields = fields
