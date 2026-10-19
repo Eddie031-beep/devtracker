@@ -70,8 +70,17 @@ Permisos reutilizables en `apps/accounts/permissions.py`: `IsAdmin`, `IsEvaluato
 
 | Método | Ruta | Quién |
 |---|---|---|
-| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (el sistema decide a tiempo o tardío) |
+| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (el sistema decide a tiempo o tardío; requiere `url`, `comment` opcional) |
 | POST | `/api/deliverables/<id>/status/` | Evaluador o líder (`{"status": "in_review" / "approved" / "rejected"}`) |
+
+### Historial de versiones
+
+| Método | Ruta | Quién |
+|---|---|---|
+| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (`{"url": "https://...", "comment": "..."}`). Cada entrega o reentrega genera una versión correlativa inmutable |
+| GET | `/api/deliverables/<id>/versions/` | Integrante del proyecto (cualquier rol dentro del proyecto; ajeno → 404, sin autenticar → 401) |
+
+Solo se guardan enlaces (`url` a PR, release, Google Drive, etc.), no archivos en disco, ya que el almacenamiento de Railway se borra en cada despliegue. Las versiones son estrictamente inmutables.
 
 ### Auditoría inmutable
 
