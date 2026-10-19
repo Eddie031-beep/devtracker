@@ -16,7 +16,8 @@ from .permissions import (
 from .serializers import DeliverableSerializer, MilestoneSerializer, ProjectSerializer
 
 # Campos que se guardan en el antes/después de la auditoría
-PROJECT_AUDIT_FIELDS = ("name", "description", "start_date", "end_date")
+# (el secreto del webhook no se audita a propósito)
+PROJECT_AUDIT_FIELDS = ("name", "description", "start_date", "end_date", "github_repo")
 MILESTONE_AUDIT_FIELDS = ("title", "description", "due_date")
 DELIVERABLE_AUDIT_FIELDS = ("title", "description", "due_at")
 
