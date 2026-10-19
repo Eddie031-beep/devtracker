@@ -168,3 +168,11 @@ class WorkflowApiTests(TestCase):
         for method in (client.post, client.put, client.patch, client.delete):
             res = method(versions_url, {"url": "https://example.com"}, format="json")
             self.assertEqual(res.status_code, 405)
+    
+    def test_entrega_con_url_larga(self):
+        url_larga = "https://docs.google.com/document/d/" + "a" * 500 + "/edit"
+        response = self.as_user(self.student).post(
+            self.submit_url, {"url": url_larga}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.deliverable.versions.get().url, url_larga)
