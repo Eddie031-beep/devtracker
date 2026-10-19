@@ -105,6 +105,48 @@ Llámalo dentro de la misma transacción que el cambio. Las acciones válidas es
 ya tiene reservada `Action.VERSION_CREATED`. Los registros no se pueden editar ni borrar
 (modelo, queryset, admin de solo lectura y triggers en la base de datos).
 
+### Integración con GitHub (webhook)
+
+| Método | Ruta | Quién |
+|---|---|---|
+| PATCH | `/api/projects/<id>/` | Líder (`github_repo` como `owner/repo` y `github_webhook_secret`) |
+| POST | `/api/integrations/github/webhook/<project_id>/` | Público, pero exige la firma HMAC de GitHub (`X-Hub-Signature-256`) |
+
+Cada push al repo vinculado queda registrado como commits del proyecto (modelo `Commit` en
+`apps/integrations/`, visible en el admin). Firma inválida o proyecto sin secreto → **403**;
+push de un repo distinto al vinculado → **400**; un commit que ya estaba registrado se ignora sin error
+(la respuesta indica cuántos se crearon: `{"detail": "ok", "created": 2}`). El evento `ping` responde
+`pong` y cualquier otro evento se ignora con 200. El secreto nunca se devuelve en la API: solo
+`has_github_webhook_secret`.
+
+**Cómo configurarlo:**
+
+1. Genera un secreto largo: `python -c "import secrets; print(secrets.token_hex(32))"`
+2. Como líder del proyecto, guárdalo en DevTracker junto con el repo:
+
+   ```bash
+   curl -X PATCH https://devtracker-production-fd93.up.railway.app/api/projects/<id>/ \
+     -H "Authorization: Bearer <access>" -H "Content-Type: application/json" \
+     -d '{"github_repo": "owner/repo", "github_webhook_secret": "<secreto>"}'
+   ```
+
+3. En GitHub: repo → *Settings* → *Webhooks* → *Add webhook*:
+
+   | Campo | Valor |
+   |---|---|
+   | Payload URL | `https://devtracker-production-fd93.up.railway.app/api/integrations/github/webhook/<id>/` |
+   | Content type | `application/json` (obligatorio) |
+   | Secret | el mismo secreto del paso 1 |
+   | SSL verification | Enable |
+   | Which events | *Just the push event* |
+
+4. Al guardar, GitHub manda un `ping`: en *Recent Deliveries* debe verse un 200. Haz un push y los
+   commits aparecen en el admin (*Integrations → Commits*). Si sale 403, el secreto no coincide.
+
+> ℹ️ Se registran los commits de todas las ramas. GitHub incluye como máximo 20 commits por push en el
+> webhook; la sincronización completa y el vínculo commit ↔ integrante son la parte 2 (#21).
+> Para probar en local, GitHub no llega a `localhost`: usa staging o un túnel (p. ej. `ngrok`).
+
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
 
@@ -157,6 +199,7 @@ apps/core/         modelos base (TimeStampedModel, SoftDeleteModel), health chec
 apps/accounts/     User personalizado con rol global (student / evaluator / admin)
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
 apps/audit/        AuditLog inmutable, `log_action(...)` y endpoint de consulta
+apps/integrations/ Commit y webhook de GitHub
 ```
 
 ## Plan por etapas
