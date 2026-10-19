@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -14,6 +15,17 @@ class Project(TimeStampedModel, SoftDeleteModel):
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    # Integración GitHub (#20): repo en formato owner/repo y secreto con el que GitHub firma el webhook
+    github_repo = models.CharField(
+        max_length=200,
+        blank=True,
+        validators=[
+            RegexValidator(
+                r"^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", "Usa el formato owner/repo, por ejemplo octocat/hello-world."
+            )
+        ],
+    )
+    github_webhook_secret = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return self.name

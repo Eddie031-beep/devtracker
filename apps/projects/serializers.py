@@ -9,10 +9,31 @@ from .permissions import (
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    # El secreto nunca se devuelve: solo se informa si está configurado
+    github_webhook_secret = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, write_only=True, trim_whitespace=False
+    )
+    has_github_webhook_secret = serializers.SerializerMethodField()
+
     class Meta:
         model = Project
-        fields = ("id", "name", "description", "owner", "start_date", "end_date", "created_at", "updated_at")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "owner",
+            "start_date",
+            "end_date",
+            "github_repo",
+            "github_webhook_secret",
+            "has_github_webhook_secret",
+            "created_at",
+            "updated_at",
+        )
         read_only_fields = ("id", "owner", "created_at", "updated_at")
+
+    def get_has_github_webhook_secret(self, obj):
+        return bool(obj.github_webhook_secret)
 
     def validate(self, attrs):
         # En un PATCH parcial, usa el valor guardado si no viene en la petición
