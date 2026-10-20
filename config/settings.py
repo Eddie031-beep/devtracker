@@ -176,6 +176,10 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@dev
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_TIMEZONE = TIME_ZONE
 
+# Token de GitHub para la sincronización de commits (#21). Opcional para repos públicos,
+# obligatorio para privados. Basta un token fine-grained con permiso de solo lectura a «Contents».
+GITHUB_TOKEN = env("GITHUB_TOKEN", default="")
+
 # Solo en Railway (no en CI ni local): su proxy termina el HTTPS y nos pasa X-Forwarded-Proto
 if RAILWAY_PUBLIC_DOMAIN:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

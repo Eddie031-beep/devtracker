@@ -10,8 +10,21 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name", "global_role")
+        fields = ("id", "username", "email", "first_name", "last_name", "global_role", "github_username")
         read_only_fields = fields
+
+
+class MeSerializer(UserSerializer):
+    """Perfil propio: lo único que el usuario edita aquí es su usuario de GitHub."""
+
+    class Meta(UserSerializer.Meta):
+        read_only_fields = tuple(f for f in UserSerializer.Meta.fields if f != "github_username")
+
+    def validate_github_username(self, value):
+        value = value.strip()
+        if value and User.objects.filter(github_username__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("Ese usuario de GitHub ya está vinculado a otra cuenta.")
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):
