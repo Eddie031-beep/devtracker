@@ -7,3 +7,7 @@ class HealthTests(TestCase):
         response = self.client.get(reverse("health"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_root_redirects_to_admin(self):
+        response = self.client.get("/")
+        self.assertRedirects(response, "/admin/", fetch_redirect_response=False)

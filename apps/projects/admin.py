@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Deliverable, Milestone, Project, ProjectMembership
+from .models import Deliverable, DeliverableVersion, Milestone, Project, ProjectMembership
 
 
 class MembershipInline(admin.TabularInline):
@@ -23,3 +23,25 @@ class MilestoneAdmin(admin.ModelAdmin):
 class DeliverableAdmin(admin.ModelAdmin):
     list_display = ("title", "milestone", "due_at", "status", "is_late")
     list_filter = ("status", "is_late")
+
+
+@admin.register(DeliverableVersion)
+class DeliverableVersionAdmin(admin.ModelAdmin):
+    """Solo lectura: las versiones de entregables son inmutables."""
+
+    list_display = ("deliverable", "number", "author", "created_at", "url")
+    list_filter = ("created_at",)
+    search_fields = ("deliverable__title", "author__username", "author__email", "comment")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        return [f.name for f in self.model._meta.fields]

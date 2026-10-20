@@ -2,6 +2,8 @@ from django.db import transaction
 from rest_framework import generics
 from rest_framework.permissions import SAFE_METHODS
 
+from apps.audit.mixins import AuditedMixin
+
 from .models import Deliverable, Milestone, Project, ProjectMembership
 from .permissions import (
     IsProjectLeader,
@@ -13,6 +15,12 @@ from .permissions import (
 )
 from .serializers import DeliverableSerializer, MilestoneSerializer, ProjectSerializer
 
+# Campos que se guardan en el antes/después de la auditoría
+# (el secreto del webhook no se audita a propósito)
+PROJECT_AUDIT_FIELDS = ("name", "description", "start_date", "end_date", "github_repo")
+MILESTONE_AUDIT_FIELDS = ("title", "description", "due_date")
+DELIVERABLE_AUDIT_FIELDS = ("title", "description", "due_at")
+
 
 class ProjectPermissionMixin:
     def get_permissions(self):
@@ -20,7 +28,9 @@ class ProjectPermissionMixin:
         return [permission_class()]
 
 
-class ProjectListCreateView(ProjectPermissionMixin, generics.ListCreateAPIView):
+class ProjectListCreateView(AuditedMixin, ProjectPermissionMixin, generics.ListCreateAPIView):
+    audit_entity = "project"
+    audit_fields = PROJECT_AUDIT_FIELDS
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
 
@@ -35,9 +45,12 @@ class ProjectListCreateView(ProjectPermissionMixin, generics.ListCreateAPIView):
             user=self.request.user,
             role=ProjectMembership.ProjectRole.LEADER,
         )
+        self.audit_created(project)
 
 
-class ProjectDetailView(ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+class ProjectDetailView(AuditedMixin, ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    audit_entity = "project"
+    audit_fields = PROJECT_AUDIT_FIELDS
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
 
@@ -45,7 +58,9 @@ class ProjectDetailView(ProjectPermissionMixin, generics.RetrieveUpdateDestroyAP
         return filter_projects_for_user(super().get_queryset(), self.request.user)
 
 
-class MilestoneListCreateView(ProjectPermissionMixin, generics.ListCreateAPIView):
+class MilestoneListCreateView(AuditedMixin, ProjectPermissionMixin, generics.ListCreateAPIView):
+    audit_entity = "milestone"
+    audit_fields = MILESTONE_AUDIT_FIELDS
     queryset = Milestone.objects.all()
     serializer_class = MilestoneSerializer
 
@@ -56,10 +71,13 @@ class MilestoneListCreateView(ProjectPermissionMixin, generics.ListCreateAPIView
         project = serializer.validated_data["project"]
         if not user_is_project_leader(self.request.user, project):
             self.permission_denied(self.request, message=IsProjectLeader.message)
-        serializer.save()
+        with transaction.atomic():
+            self.audit_created(serializer.save())
 
 
-class MilestoneDetailView(ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+class MilestoneDetailView(AuditedMixin, ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    audit_entity = "milestone"
+    audit_fields = MILESTONE_AUDIT_FIELDS
     queryset = Milestone.objects.all()
     serializer_class = MilestoneSerializer
 
@@ -67,7 +85,9 @@ class MilestoneDetailView(ProjectPermissionMixin, generics.RetrieveUpdateDestroy
         return filter_milestones_for_user(super().get_queryset(), self.request.user)
 
 
-class DeliverableListCreateView(ProjectPermissionMixin, generics.ListCreateAPIView):
+class DeliverableListCreateView(AuditedMixin, ProjectPermissionMixin, generics.ListCreateAPIView):
+    audit_entity = "deliverable"
+    audit_fields = DELIVERABLE_AUDIT_FIELDS
     queryset = Deliverable.objects.all()
     serializer_class = DeliverableSerializer
 
@@ -78,10 +98,13 @@ class DeliverableListCreateView(ProjectPermissionMixin, generics.ListCreateAPIVi
         project = serializer.validated_data["milestone"].project
         if not user_is_project_leader(self.request.user, project):
             self.permission_denied(self.request, message=IsProjectLeader.message)
-        serializer.save()
+        with transaction.atomic():
+            self.audit_created(serializer.save())
 
 
-class DeliverableDetailView(ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+class DeliverableDetailView(AuditedMixin, ProjectPermissionMixin, generics.RetrieveUpdateDestroyAPIView):
+    audit_entity = "deliverable"
+    audit_fields = DELIVERABLE_AUDIT_FIELDS
     queryset = Deliverable.objects.all()
     serializer_class = DeliverableSerializer
 

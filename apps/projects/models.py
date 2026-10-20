@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -14,6 +15,17 @@ class Project(TimeStampedModel, SoftDeleteModel):
     )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    # Integración GitHub (#20): repo en formato owner/repo y secreto con el que GitHub firma el webhook
+    github_repo = models.CharField(
+        max_length=200,
+        blank=True,
+        validators=[
+            RegexValidator(
+                r"^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", "Usa el formato owner/repo, por ejemplo octocat/hello-world."
+            )
+        ],
+    )
+    github_webhook_secret = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return self.name
@@ -83,3 +95,57 @@ class Deliverable(TimeStampedModel, SoftDeleteModel):
 
     def is_past_due(self, at=None):
         return (at or timezone.now()) > self.due_at
+
+
+class ImmutableVersionError(Exception):
+    """Se intentó modificar o borrar una versión de entregable."""
+
+
+class DeliverableVersionQuerySet(models.QuerySet):
+    """Bloquea las vías masivas de modificación: `.update()`, `.delete()`, `.bulk_update()`."""
+
+    def update(self, **kwargs):
+        raise ImmutableVersionError("Las versiones de entregables no se pueden modificar.")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ImmutableVersionError("Las versiones de entregables no se pueden modificar.")
+
+    def delete(self):
+        raise ImmutableVersionError("Las versiones de entregables no se pueden borrar.")
+
+    def update_or_create(self, defaults=None, create_defaults=None, **kwargs):
+        raise ImmutableVersionError("Las versiones de entregables no se pueden modificar.")
+
+
+class DeliverableVersion(models.Model):
+    deliverable = models.ForeignKey(Deliverable, on_delete=models.PROTECT, related_name="versions")
+    number = models.PositiveIntegerField()
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="deliverable_versions"
+    )
+    url = models.URLField(max_length=2000)
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = DeliverableVersionQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["number"]
+        constraints = [
+            models.UniqueConstraint(fields=["deliverable", "number"], name="unique_deliverable_version")
+        ]
+
+    def __str__(self):
+        return f"{self.deliverable.title} v{self.number}"
+
+    @property
+    def project(self):
+        return self.deliverable.project
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None or not self._state.adding:
+            raise ImmutableVersionError("Las versiones de entregables no se pueden modificar.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ImmutableVersionError("Las versiones de entregables no se pueden borrar.")

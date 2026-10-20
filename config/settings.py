@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,6 +33,13 @@ SECRET_KEY = env("SECRET_KEY", default="dev-insecure-cambiar-en-produccion")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+# Railway: dominio público que asigna al servicio y host desde el que hace el health check
+RAILWAY_PUBLIC_DOMAIN = env("RAILWAY_PUBLIC_DOMAIN", default="")
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS += [RAILWAY_PUBLIC_DOMAIN, "healthcheck.railway.app"]
+    CSRF_TRUSTED_ORIGINS += [f"https://{RAILWAY_PUBLIC_DOMAIN}"]
 
 
 # Application definition
@@ -50,10 +58,13 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.projects",
+    "apps.audit",
+    "apps.integrations",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -85,6 +96,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+
+# En Railway nunca usar el SQLite de respaldo: se borra en cada deploy
+if env("RAILWAY_ENVIRONMENT_ID", default="") and not env("DATABASE_URL", default=""):
+    raise ImproperlyConfigured("Falta DATABASE_URL en Railway: usa ${{Postgres.DATABASE_URL}}")
 
 DATABASES = {
     # Postgres en docker-compose; SQLite como respaldo para desarrollo rápido
@@ -127,6 +142,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "static/"
+# `collectstatic` los junta aquí y WhiteNoise los sirve en producción (sin Nginx)
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -153,3 +174,17 @@ EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")
 
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+CELERY_TIMEZONE = TIME_ZONE
+
+# Token de GitHub para la sincronización de commits (#21). Opcional para repos públicos,
+# obligatorio para privados. Basta un token fine-grained con permiso de solo lectura a «Contents».
+GITHUB_TOKEN = env("GITHUB_TOKEN", default="")
+
+# Solo en Railway (no en CI ni local): su proxy termina el HTTPS y nos pasa X-Forwarded-Proto
+if RAILWAY_PUBLIC_DOMAIN:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # El health check de Railway llega por HTTP interno: no se redirige
+    SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

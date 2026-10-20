@@ -7,7 +7,7 @@ Plataforma de Gestión y Auditoría de Proyectos de Software — Proyecto Final 
 
 ## Stack
 
-Django 5.1 · Django REST Framework · SimpleJWT · PostgreSQL · Celery + Redis
+Django 5.1 · Django REST Framework · SimpleJWT · PostgreSQL · Celery + Redis · Railway (gunicorn + WhiteNoise)
 
 ## Puesta en marcha
 > ⚠️ **Problemas comunes**
@@ -70,21 +70,176 @@ Permisos reutilizables en `apps/accounts/permissions.py`: `IsAdmin`, `IsEvaluato
 
 | Método | Ruta | Quién |
 |---|---|---|
-| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (el sistema decide a tiempo o tardío) |
+| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (el sistema decide a tiempo o tardío; requiere `url`, `comment` opcional) |
 | POST | `/api/deliverables/<id>/status/` | Evaluador o líder (`{"status": "in_review" / "approved" / "rejected"}`) |
+
+### Historial de versiones
+
+| Método | Ruta | Quién |
+|---|---|---|
+| POST | `/api/deliverables/<id>/submit/` | Integrante asignado (`{"url": "https://...", "comment": "..."}`). Cada entrega o reentrega genera una versión correlativa inmutable |
+| GET | `/api/deliverables/<id>/versions/` | Integrante del proyecto (cualquier rol dentro del proyecto; ajeno → 404, sin autenticar → 401) |
+
+Solo se guardan enlaces (`url` a PR, release, Google Drive, etc.), no archivos en disco, ya que el almacenamiento de Railway se borra en cada despliegue. Las versiones son estrictamente inmutables.
+
+### Auditoría inmutable
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET | `/api/projects/<id>/audit/` | Líder, evaluador del proyecto o admin (integrante normal → 403, ajeno → 404) |
+
+Filtros opcionales: `?action=deliverable.submitted&date_from=2026-10-01&date_to=2026-10-31` (fechas `AAAA-MM-DD`). Paginado de 50 en 50 (`?page=2`).
+
+Para registrar algo desde cualquier servicio:
+
+```python
+from apps.audit.models import Action
+from apps.audit.services import log_action
+
+log_action(request.user, Action.DELIVERABLE_STATUS_CHANGED, deliverable,
+           changes={"status": {"before": "submitted", "after": "in_review"}})
+```
+
+Llámalo dentro de la misma transacción que el cambio. Las acciones válidas están en `Action`
+(`apps/audit/models.py`); agregar una nueva **no** requiere migración. El historial de versiones (#19)
+ya tiene reservada `Action.VERSION_CREATED`. Los registros no se pueden editar ni borrar
+(modelo, queryset, admin de solo lectura y triggers en la base de datos).
+
+### Integración con GitHub (webhook)
+
+| Método | Ruta | Quién |
+|---|---|---|
+| PATCH | `/api/projects/<id>/` | Líder (`github_repo` como `owner/repo` y `github_webhook_secret`) |
+| POST | `/api/integrations/github/webhook/<project_id>/` | Público, pero exige la firma HMAC de GitHub (`X-Hub-Signature-256`) |
+
+Cada push al repo vinculado queda registrado como commits del proyecto (modelo `Commit` en
+`apps/integrations/`, visible en el admin). Firma inválida o proyecto sin secreto → **403**;
+push de un repo distinto al vinculado → **400**; un commit que ya estaba registrado se ignora sin error
+(la respuesta indica cuántos se crearon: `{"detail": "ok", "created": 2}`). El evento `ping` responde
+`pong` y cualquier otro evento se ignora con 200. El secreto nunca se devuelve en la API: solo
+`has_github_webhook_secret`.
+
+**Cómo configurarlo:**
+
+1. Genera un secreto largo: `python -c "import secrets; print(secrets.token_hex(32))"`
+2. Como líder del proyecto, guárdalo en DevTracker junto con el repo:
+
+   ```bash
+   curl -X PATCH https://devtracker-production-fd93.up.railway.app/api/projects/<id>/ \
+     -H "Authorization: Bearer <access>" -H "Content-Type: application/json" \
+     -d '{"github_repo": "owner/repo", "github_webhook_secret": "<secreto>"}'
+   ```
+
+3. En GitHub: repo → *Settings* → *Webhooks* → *Add webhook*:
+
+   | Campo | Valor |
+   |---|---|
+   | Payload URL | `https://devtracker-production-fd93.up.railway.app/api/integrations/github/webhook/<id>/` |
+   | Content type | `application/json` (obligatorio) |
+   | Secret | el mismo secreto del paso 1 |
+   | SSL verification | Enable |
+   | Which events | *Just the push event* |
+
+4. Al guardar, GitHub manda un `ping`: en *Recent Deliveries* debe verse un 200. Haz un push y los
+   commits aparecen en el admin (*Integrations → Commits*). Si sale 403, el secreto no coincide.
+
+> ℹ️ Se registran los commits de todas las ramas. GitHub incluye como máximo 20 commits por push en el
+> webhook; para lo anterior está la sincronización (abajo).
+> Para probar en local, GitHub no llega a `localhost`: usa staging o un túnel (p. ej. `ngrok`).
+
+### Commits por integrante y entregable
+
+| Método | Ruta | Quién |
+|---|---|---|
+| PATCH | `/api/auth/me/` | Autenticado (`{"github_username": "mi-usuario"}`; es lo único editable ahí) |
+| GET | `/api/projects/<id>/commits/` | Integrante del proyecto (ajeno → 404) |
+| POST | `/api/projects/<id>/commits/sync/` | Líder o admin (integrante → 403). Responde **202** y la tarea corre en Celery |
+
+Cada commit (del webhook o de la sincronización) se vincula solo:
+
+- **Integrante:** el `github_username` del commit contra el de los integrantes del proyecto (sin
+  distinguir mayúsculas); si no hay, el correo del commit contra el correo de la cuenta. Los correos
+  privados `12345+usuario@users.noreply.github.com` también se reconocen. Alguien que no es integrante
+  del proyecto nunca queda vinculado.
+- **Entregable:** `#D<id>` en el mensaje (ej. `Agrega login #D12`), solo si el entregable 12 es de ese
+  mismo proyecto y no está borrado.
+
+Al guardar tu `github_username` en `/api/auth/me/`, tus commits anteriores sin dueño quedan vinculados.
+La sincronización también completa los vínculos pendientes (p. ej. de un entregable creado después del
+commit). Un vínculo que ya existe no se reemplaza.
+
+Filtros: `?author=<user_id>`, `?deliverable=<id>` (o `none` en cualquiera de los dos para ver los sin
+vincular). Paginado de 50 en 50.
+
+La sincronización trae la rama principal del repo desde la API de GitHub (hasta 2000 commits) sin
+duplicar lo que ya llegó por el webhook. Sin token, GitHub solo permite repos públicos y 60 peticiones
+por hora: para repos privados agrega la variable `GITHUB_TOKEN` (token *fine-grained* con permiso de
+solo lectura a *Contents* del repo). Si Redis está dormido responde **503**: reintenta en un momento.
+
+Sin worker de Celery (como en staging), la sincronización se corre a mano desde la consola:
+
+```bash
+python manage.py sync_github_commits <id_proyecto>   # uno o varios ids
+python manage.py sync_github_commits --all           # todos los proyectos con repo vinculado
+```
 
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
 
+## Despliegue (Railway, staging)
+
+URL de staging: https://devtracker-production-fd93.up.railway.app
+
+Cada merge a `develop` se despliega solo. Antes de publicar, Railway corre `migrate`;
+si `/api/health/` no responde 200, mantiene la versión anterior.
+
+**Configuración del servicio `devtracker`** (en *Settings* de Railway, no en el repo):
+
+| Campo | Valor |
+|---|---|
+| Source → Branch | `develop` |
+| Custom Start Command | `sh -c 'python manage.py collectstatic --noinput && gunicorn config.wsgi --access-logfile -'` |
+| Pre-deploy step | `sh -c 'for i in 1 2 3 4 5 6; do python manage.py migrate --noinput && exit 0; echo "Postgres despertando, reintento $i"; sleep 10; done; exit 1'` |
+| Pre-deploy Timeout | `300` |
+| Healthcheck Path | `/api/health/` |
+| Networking | dominio generado (`settings.py` lo agrega solo a `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`) |
+
+**Variables del servicio** (en *Variables → Raw Editor*):
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
+| `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
+| `DEBUG` | `False` |
+| `GITHUB_TOKEN` | opcional: token de GitHub de solo lectura para sincronizar repos privados |
+
+> ⚠️ Railway sugiere variables leídas de `.env.example` (`localhost`, `DEBUG=True`): no las agregues.
+> Después de cambiar variables hay que darle a **Deploy** para que se apliquen.
+
+> ℹ️ En el plan gratis, Postgres y Redis se duermen sin uso (Serverless obligatorio).
+> La primera visita después de un rato puede fallar mientras despiertan: recarga la página.
+> El pre-deploy reintenta el `migrate` hasta 6 veces por eso mismo.
+
+**Crear el admin:** servicio `devtracker` → *Console* → `python manage.py createsuperuser`.
+
+**Sincronizar commits:** servicio `devtracker` → *Console* → `python manage.py sync_github_commits --all`.
+Staging no tiene worker de Celery (el plan gratis no alcanza para otro servicio), así que el endpoint
+`POST /api/projects/<id>/commits/sync/` deja la tarea en cola sin que nadie la ejecute. Para tener
+worker: nuevo servicio desde el mismo repo, con las mismas variables, Start Command
+`celery -A config worker --loglevel=info`, sin dominio ni health check.
+
 ## Estructura
 
 ```
-config/            settings, urls
+config/            settings, urls, app de Celery
 apps/core/         modelos base (TimeStampedModel, SoftDeleteModel), health check
 apps/accounts/     User personalizado con rol global (student / evaluator / admin)
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
+apps/audit/        AuditLog inmutable, `log_action(...)` y endpoint de consulta
+apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregables y sincronización (Celery)
 ```
 
 ## Plan por etapas
@@ -92,7 +247,7 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 | Etapa | Contenido | Estado |
 |---|---|---|
 | **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | ✅  Completa |
-| 2. Trazabilidad y entregables | Historial de versiones, auditoría inmutable, integración GitHub | ⏳ |
+| **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | ✅ Completa |
 | 3. Métricas y evaluación | Métricas por integrante, dashboard por rol, evaluación | ⏳ |
 | 4. Should / Could Have | Notificaciones, reportes, OAuth2, docs de API, extras | ⏳ |
 
@@ -106,6 +261,20 @@ apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Del
 | #3 | CRUD de proyectos, hitos y entregables | Brayan Quintero, Harold Morales | #10, #11 |
 | #4 | Asignación de integrantes y responsabilidades | Eliecias Cubilla | #9, #12 |
 | #5 | Flujo de estados de entregables | Eddie Man | #8, #13 |
+
+### Etapa 2: quién hace qué
+
+| Issue | Tarea | Responsable | Depende de | PR |
+|---|---|---|---|---|
+| #17 | Despliegue en Railway (staging) | Eddie Man | — | #24, #25 |
+| #18 | Auditoría inmutable | Harold Morales | — | #27, #28 |
+| #19 | Historial de versiones de entregables | Brayan Quintero | #18 | #29 |
+| #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | #30 |
+| #21 | Integración GitHub (parte 2): sincronización y vínculo con integrantes | Eliecias Cubilla | #20 | #31 |
+
+Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
+#19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):
+avisen al grupo antes de subir migraciones.
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
