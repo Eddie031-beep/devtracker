@@ -144,8 +144,37 @@ push de un repo distinto al vinculado → **400**; un commit que ya estaba regis
    commits aparecen en el admin (*Integrations → Commits*). Si sale 403, el secreto no coincide.
 
 > ℹ️ Se registran los commits de todas las ramas. GitHub incluye como máximo 20 commits por push en el
-> webhook; la sincronización completa y el vínculo commit ↔ integrante son la parte 2 (#21).
+> webhook; para lo anterior está la sincronización (abajo).
 > Para probar en local, GitHub no llega a `localhost`: usa staging o un túnel (p. ej. `ngrok`).
+
+### Commits por integrante y entregable
+
+| Método | Ruta | Quién |
+|---|---|---|
+| PATCH | `/api/auth/me/` | Autenticado (`{"github_username": "mi-usuario"}`; es lo único editable ahí) |
+| GET | `/api/projects/<id>/commits/` | Integrante del proyecto (ajeno → 404) |
+| POST | `/api/projects/<id>/commits/sync/` | Líder o admin (integrante → 403). Responde **202** y la tarea corre en Celery |
+
+Cada commit (del webhook o de la sincronización) se vincula solo:
+
+- **Integrante:** el `github_username` del commit contra el de los integrantes del proyecto (sin
+  distinguir mayúsculas); si no hay, el correo del commit contra el correo de la cuenta. Los correos
+  privados `12345+usuario@users.noreply.github.com` también se reconocen. Alguien que no es integrante
+  del proyecto nunca queda vinculado.
+- **Entregable:** `#D<id>` en el mensaje (ej. `Agrega login #D12`), solo si el entregable 12 es de ese
+  mismo proyecto y no está borrado.
+
+Al guardar tu `github_username` en `/api/auth/me/`, tus commits anteriores sin dueño quedan vinculados.
+La sincronización también completa los vínculos pendientes (p. ej. de un entregable creado después del
+commit). Un vínculo que ya existe no se reemplaza.
+
+Filtros: `?author=<user_id>`, `?deliverable=<id>` (o `none` en cualquiera de los dos para ver los sin
+vincular). Paginado de 50 en 50.
+
+La sincronización trae la rama principal del repo desde la API de GitHub (hasta 2000 commits) sin
+duplicar lo que ya llegó por el webhook. Sin token, GitHub solo permite repos públicos y 60 peticiones
+por hora: para repos privados agrega la variable `GITHUB_TOKEN` (token *fine-grained* con permiso de
+solo lectura a *Contents* del repo). Si Redis está dormido responde **503**: reintenta en un momento.
 
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
@@ -178,6 +207,7 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` |
 | `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
 | `DEBUG` | `False` |
+| `GITHUB_TOKEN` | opcional: token de GitHub de solo lectura para sincronizar repos privados |
 
 > ⚠️ Railway sugiere variables leídas de `.env.example` (`localhost`, `DEBUG=True`): no las agregues.
 > Después de cambiar variables hay que darle a **Deploy** para que se apliquen.
@@ -199,7 +229,7 @@ apps/core/         modelos base (TimeStampedModel, SoftDeleteModel), health chec
 apps/accounts/     User personalizado con rol global (student / evaluator / admin)
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
 apps/audit/        AuditLog inmutable, `log_action(...)` y endpoint de consulta
-apps/integrations/ Commit y webhook de GitHub
+apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregables y sincronización (Celery)
 ```
 
 ## Plan por etapas
