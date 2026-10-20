@@ -176,6 +176,13 @@ duplicar lo que ya llegó por el webhook. Sin token, GitHub solo permite repos p
 por hora: para repos privados agrega la variable `GITHUB_TOKEN` (token *fine-grained* con permiso de
 solo lectura a *Contents* del repo). Si Redis está dormido responde **503**: reintenta en un momento.
 
+Sin worker de Celery (como en staging), la sincronización se corre a mano desde la consola:
+
+```bash
+python manage.py sync_github_commits <id_proyecto>   # uno o varios ids
+python manage.py sync_github_commits --all           # todos los proyectos con repo vinculado
+```
+
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
 
@@ -218,8 +225,11 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 
 **Crear el admin:** servicio `devtracker` → *Console* → `python manage.py createsuperuser`.
 
-**Worker de Celery** (issue #21): nuevo servicio desde el mismo repo, con las mismas variables,
-Start Command `celery -A config worker --loglevel=info`, sin dominio ni health check.
+**Sincronizar commits:** servicio `devtracker` → *Console* → `python manage.py sync_github_commits --all`.
+Staging no tiene worker de Celery (el plan gratis no alcanza para otro servicio), así que el endpoint
+`POST /api/projects/<id>/commits/sync/` deja la tarea en cola sin que nadie la ejecute. Para tener
+worker: nuevo servicio desde el mismo repo, con las mismas variables, Start Command
+`celery -A config worker --loglevel=info`, sin dominio ni health check.
 
 ## Estructura
 
@@ -237,7 +247,7 @@ apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregabl
 | Etapa | Contenido | Estado |
 |---|---|---|
 | **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | ✅  Completa |
-| **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | 🚧 En curso |
+| **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | ✅ Completa |
 | 3. Métricas y evaluación | Métricas por integrante, dashboard por rol, evaluación | ⏳ |
 | 4. Should / Could Have | Notificaciones, reportes, OAuth2, docs de API, extras | ⏳ |
 
@@ -257,10 +267,10 @@ apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregabl
 | Issue | Tarea | Responsable | Depende de | PR |
 |---|---|---|---|---|
 | #17 | Despliegue en Railway (staging) | Eddie Man | — | #24, #25 |
-| #18 | Auditoría inmutable | Harold Morales | — | — |
-| #19 | Historial de versiones de entregables | Brayan Quintero | #18 | — |
-| #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | — |
-| #21 | Integración GitHub (parte 2): sincronización y vínculo con integrantes | Eliecias Cubilla | #20 | — |
+| #18 | Auditoría inmutable | Harold Morales | — | #27, #28 |
+| #19 | Historial de versiones de entregables | Brayan Quintero | #18 | #29 |
+| #20 | Integración GitHub (parte 1): vincular repo y webhook | Carlos Miranda | #17 | #30 |
+| #21 | Integración GitHub (parte 2): sincronización y vínculo con integrantes | Eliecias Cubilla | #20 | #31 |
 
 Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
 #19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):

@@ -5,6 +5,7 @@ from unittest import mock
 from urllib.error import HTTPError
 
 from django.contrib.auth import get_user_model
+from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from kombu.exceptions import OperationalError
@@ -229,6 +230,44 @@ class CommitSyncTests(ProjectFixture):
         self.project.github_repo = ""
         self.project.save()
         self.assertEqual(client.post(url).status_code, 400)
+
+
+class SyncCommandTests(ProjectFixture):
+    def run_command(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        call_command("sync_github_commits", *args, stdout=out, stderr=err)
+        return out.getvalue(), err.getvalue()
+
+    def test_sincroniza_sin_celery(self):
+        items = [api_commit("b" * 40, message=f"Login #D{self.deliverable.pk}", login="AnaDev")]
+        with mock.patch("apps.integrations.tasks.fetch_repo_commits", return_value=items):
+            out, _ = self.run_command(str(self.project.pk))
+        self.assertIn("1 commits nuevos", out)
+        b = Commit.objects.get(sha="b" * 40)
+        self.assertEqual((b.author, b.deliverable), (self.ana, self.deliverable))
+
+    @override_settings(GITHUB_TOKEN="")
+    def test_all_solo_proyectos_con_repo(self):
+        with mock.patch("apps.integrations.tasks.fetch_repo_commits", return_value=[]) as fetch:
+            self.run_command("--all")
+        fetch.assert_called_once_with("equipo/devtracker", "")
+
+    def test_ids_o_all_y_proyecto_sin_repo(self):
+        with self.assertRaises(CommandError):
+            self.run_command()
+        with self.assertRaises(CommandError):
+            self.run_command("--all", str(self.project.pk))
+        with self.assertRaisesMessage(CommandError, str(self.other_project.pk)):
+            self.run_command(str(self.other_project.pk))
+
+    def test_error_de_github_sigue_con_los_demas_y_falla_al_final(self):
+        self.other_project.github_repo = "equipo/otro"
+        self.other_project.save()
+        error = HTTPError("url", 404, "Not Found", {}, None)
+        with mock.patch("apps.integrations.tasks.fetch_repo_commits", side_effect=[error, []]) as fetch:
+            with self.assertRaisesMessage(CommandError, "1 proyecto"):
+                self.run_command("--all")
+        self.assertEqual(fetch.call_count, 2)
 
 
 class FakeResponse(io.BytesIO):
