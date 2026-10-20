@@ -1,8 +1,9 @@
+from django.conf import settings
 from django.db import models
 
 
 class Commit(models.Model):
-    """Commit recibido desde el webhook de GitHub (evento push)."""
+    """Commit del repo vinculado: llega por el webhook (push) o por la sincronización con la API."""
 
     project = models.ForeignKey("projects.Project", on_delete=models.CASCADE, related_name="commits")
     sha = models.CharField(max_length=40)
@@ -13,6 +14,13 @@ class Commit(models.Model):
     message = models.TextField(blank=True)
     committed_at = models.DateTimeField()
     url = models.URLField(max_length=500, blank=True)
+    # Vínculos (#21): integrante que lo hizo (por github_username o email) y entregable (#D<id> en el mensaje)
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="commits"
+    )
+    deliverable = models.ForeignKey(
+        "projects.Deliverable", null=True, blank=True, on_delete=models.SET_NULL, related_name="commits"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

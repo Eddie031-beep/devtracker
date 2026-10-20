@@ -162,3 +162,47 @@ class GlobalRoleTests(APITestCase):
     def test_sin_autenticar_no_puede_cambiar_roles(self):
         response = self.cambiar_rol(self.estudiante, User.GlobalRole.ADMIN)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class GitHubUsernameTests(APITestCase):
+    def setUp(self):
+        self.user = create_user("estudiante")
+        self.client.force_authenticate(self.user)
+
+    def patch_me(self, data):
+        return self.client.patch(reverse("me"), data, format="json")
+
+    def test_usuario_edita_su_github_username(self):
+        response = self.patch_me({"github_username": "  mi-usuario  "})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["github_username"], "mi-usuario")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.github_username, "mi-usuario")
+
+    def test_puede_borrarlo(self):
+        self.patch_me({"github_username": "mi-usuario"})
+        self.assertEqual(self.patch_me({"github_username": ""}).status_code, status.HTTP_200_OK)
+
+    def test_no_puede_cambiar_su_rol_ni_otros_campos_por_me(self):
+        response = self.patch_me({"global_role": User.GlobalRole.ADMIN, "username": "otro", "email": "x@x.com"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.global_role, User.GlobalRole.STUDENT)
+        self.assertEqual(self.user.username, "estudiante")
+        self.assertEqual(self.user.email, "estudiante@example.com")
+
+    def test_formato_invalido_400(self):
+        for value in ("-empieza-con-guion", "doble--guion", "con espacio", "a" * 40):
+            self.assertEqual(self.patch_me({"github_username": value}).status_code, 400, value)
+
+    def test_username_de_otra_cuenta_400_sin_importar_mayusculas(self):
+        create_user("otro", github_username="Compartido")
+        self.assertEqual(self.patch_me({"github_username": "compartido"}).status_code, 400)
+
+    def test_varios_usuarios_sin_github_username_no_chocan(self):
+        create_user("otro")
+        self.assertEqual(self.patch_me({"github_username": ""}).status_code, status.HTTP_200_OK)
+
+    def test_put_no_permitido(self):
+        response = self.client.put(reverse("me"), {"github_username": "x"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

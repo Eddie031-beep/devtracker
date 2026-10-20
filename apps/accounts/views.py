@@ -10,10 +10,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.integrations.services import link_user_commits
+
 from .models import User
 from .permissions import IsAdmin
 from .serializers import (
     LogoutSerializer,
+    MeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
@@ -42,12 +45,20 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
-class MeView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
+class MeView(generics.RetrieveUpdateAPIView):
+    """GET: datos propios. PATCH: solo `github_username` (los demás campos son de solo lectura)."""
+
+    serializer_class = MeSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch"]
 
     def get_object(self):
         return self.request.user
+
+    def perform_update(self, serializer):
+        user = serializer.save()
+        # Los commits que ya estaban registrados sin autor quedan vinculados al nuevo usuario
+        link_user_commits(user)
 
 
 class UserListView(generics.ListAPIView):
