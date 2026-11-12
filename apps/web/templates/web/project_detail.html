@@ -1,39 +1,120 @@
 {% extends "web/base.html" %}
-{% load static %}
+{% load static web_extras %}
 {% block title %}{{ project.name }}{% endblock %}
 {% block content %}
-<hgroup>
-  <h2>{{ project.name }}</h2>
-  <p>{{ project.description|default:"Proyecto de software" }}{% if project.github_repo %} · <a href="https://github.com/{{ project.github_repo }}" target="_blank" rel="noopener">{{ project.github_repo }}</a>{% endif %}</p>
-</hgroup>
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span><span>{{ project.name }}</span></nav>
+
+<div class="page-head">
+  <div class="title">
+    <div class="title-row"><h1>{{ project.name }}</h1></div>
+    <p class="muted">{{ project.description|default:"Proyecto de software" }}</p>
+    <div class="meta">
+      {% if project.github_repo %}<a href="https://github.com/{{ project.github_repo }}" target="_blank" rel="noopener" class="mono">{{ project.github_repo }}</a>{% else %}<span>Sin repositorio vinculado</span>{% endif %}
+      <span>{{ memberships|length }} integrante{{ memberships|length|pluralize }}</span>
+    </div>
+  </div>
+  <div class="actions no-print">
+    <a href="{% url 'reports:project' project.pk %}" class="btn secondary">Reporte</a>
+    {% if can_review %}<a href="{% url 'web:project_audit' project.pk %}" class="btn secondary">Auditoría</a>{% endif %}
+  </div>
+</div>
 
 {% with d=metrics.deliverables c=metrics.commits %}
-<section class="kpis">
-  <article class="kpi"><strong>{{ d.total }}</strong><span>Entregables</span></article>
-  <article class="kpi"><strong>{{ d.approved }}</strong><span>Aprobados</span></article>
-  <article class="kpi"><strong>{% if d.on_time_rate is not None %}{{ d.on_time_rate }}%{% else %}—{% endif %}</strong><span>Entregados a tiempo</span></article>
-  <article class="kpi"><strong>{{ d.average_score|default_if_none:"—" }}</strong><span>Nota promedio</span></article>
-  <article class="kpi"><strong>{{ d.overdue }}</strong><span>Vencidos sin entregar</span></article>
-  <article class="kpi"><strong>{{ c.last_30_days }}</strong><span>Commits (30 días)</span></article>
+<section class="grid kpis" aria-label="Indicadores">
+  <div class="kpi"><strong>{{ d.total }}</strong><span>Entregables</span></div>
+  <div class="kpi"><strong>{{ d.approved }}</strong><span>Aprobados</span></div>
+  <div class="kpi"><strong>{% if d.on_time_rate is not None %}{{ d.on_time_rate }}%{% else %}—{% endif %}</strong><span>Entregados a tiempo</span></div>
+  <div class="kpi"><strong>{{ d.average_score|default_if_none:"—" }}</strong><span>Nota promedio</span></div>
+  <div class="kpi{% if d.overdue %} warn{% endif %}"><strong>{{ d.overdue }}</strong><span>Vencidos sin entregar</span></div>
+  <div class="kpi"><strong>{{ c.last_30_days }}</strong><span>Commits (30 días)</span></div>
 </section>
 {% endwith %}
 
-<section class="charts">
-  <article><header>Entregables por estado</header><div class="chart-box"><canvas id="status-chart"></canvas></div></article>
-  <article><header>Commits por semana</header><div class="chart-box"><canvas id="commits-chart"></canvas></div></article>
-  <article><header>Commits por integrante</header><div class="chart-box"><canvas id="members-chart"></canvas></div></article>
+{% if can_manage %}
+<section class="grid two no-print">
+  <details class="panel">
+    <summary>Nuevo entregable</summary>
+    <div class="body">
+      {% if deliverable_form.fields.milestone.queryset.exists %}
+      <form method="post" action="{% url 'web:deliverable_create' project.pk %}">{% csrf_token %}
+        <div class="field">{{ deliverable_form.milestone.label_tag }}{{ deliverable_form.milestone }}</div>
+        <div class="field">{{ deliverable_form.title.label_tag }}{{ deliverable_form.title }}</div>
+        <div class="field">{{ deliverable_form.description.label_tag }}{{ deliverable_form.description }}</div>
+        <div class="field">{{ deliverable_form.due_at.label_tag }}{{ deliverable_form.due_at }}</div>
+        <fieldset class="field" style="border: 0; padding: 0; margin: 0 0 14px">
+          <legend style="font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px">Asignar a</legend>
+          {% for choice in deliverable_form.assignees %}
+          <label style="display: flex; align-items: center; gap: 8px; min-height: 36px; font-weight: 400; color: var(--ink)">{{ choice.tag }} {{ choice.choice_label }}</label>
+          {% endfor %}
+        </fieldset>
+        <button type="submit" class="btn">Crear y asignar</button>
+      </form>
+      {% else %}<p class="muted small">Primero crea un hito.</p>{% endif %}
+    </div>
+  </details>
+  <details class="panel">
+    <summary>Nuevo hito</summary>
+    <div class="body">
+      <form method="post" action="{% url 'web:milestone_create' project.pk %}">{% csrf_token %}
+        <div class="field">{{ milestone_form.title.label_tag }}{{ milestone_form.title }}</div>
+        <div class="field">{{ milestone_form.description.label_tag }}{{ milestone_form.description }}</div>
+        <div class="field">{{ milestone_form.due_date.label_tag }}{{ milestone_form.due_date }}</div>
+        <button type="submit" class="btn">Crear hito</button>
+      </form>
+    </div>
+  </details>
+</section>
+{% endif %}
+
+<section class="stack">
+  <h2>Hitos y entregables</h2>
+  {% for milestone in milestones %}
+  {% with items=milestone.deliverables.all %}
+  <div class="card flush">
+    <header>
+      <div class="stack" style="gap: 2px">
+        <h3>{{ milestone.title }}</h3>
+        <span class="muted small">{{ items|length }} entregable{{ items|length|pluralize }} · cierra {{ milestone.due_date|date:"d M Y" }}</span>
+      </div>
+    </header>
+    {% if items %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Entregable</th><th>Asignado a</th><th>Vence</th><th>Estado</th></tr></thead>
+      <tbody>
+      {% for d in items %}
+        <tr>
+          <td><a href="{% url 'web:deliverable' d.pk %}"><span class="mono">#D{{ d.pk }}</span> {{ d.title }}</a></td>
+          <td>{% for a in d.assignees.all %}<span class="person"><span class="avatar sm">{{ a|initials }}</span>{{ a.get_full_name|default:a.username }}</span>{% empty %}<span class="muted">Sin asignar</span>{% endfor %}</td>
+          <td class="{% if d.due_at < now and not d.submitted_at %}overdue{% endif %}">{{ d.due_at|date:"d M · H:i" }}</td>
+          <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span>{% if d.is_late and d.status != "late" %} <span class="badge late">Tarde</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<p class="empty">Aún sin entregables.</p>{% endif %}
+  </div>
+  {% endwith %}
+  {% empty %}
+  <p class="card muted">Este proyecto todavía no tiene hitos.{% if can_manage %} Crea el primero con «Nuevo hito».{% endif %}</p>
+  {% endfor %}
+</section>
+
+<section class="grid charts-grid three" aria-label="Gráficos">
+  <div class="card"><header><h3>Entregables por estado</h3></header><div class="chart-box"><canvas id="status-chart" role="img" aria-label="Entregables por estado"></canvas></div></div>
+  <div class="card"><header><h3>Commits por semana</h3></header><div class="chart-box"><canvas id="commits-chart" role="img" aria-label="Commits por semana"></canvas></div></div>
+  <div class="card"><header><h3>Commits por integrante</h3></header><div class="chart-box"><canvas id="members-chart" role="img" aria-label="Commits por integrante"></canvas></div></div>
 </section>
 {{ chart|json_script:"chart-data" }}
 
-<section>
-  <h3>Métricas por integrante</h3>
+<section class="card flush">
+  <header><h2>Métricas por integrante</h2><a href="{% url 'reports:members_csv' project.pk %}" class="small">Descargar CSV</a></header>
   <div class="table-wrap"><table>
     <thead><tr><th>Integrante</th><th>Rol</th><th>Asignados</th><th>Entregados</th><th>Tarde</th><th>A tiempo</th><th>Aprobados</th><th>Nota prom.</th><th>Versiones</th><th>Commits</th></tr></thead>
     <tbody>
     {% for m in metrics.members %}
       <tr>
         <td>{{ m.name }}</td>
-        <td>{{ m.role_display }}</td>
+        <td><span class="badge role-{{ m.role }}">{{ m.role_display }}</span></td>
         <td>{{ m.assigned }}</td>
         <td>{{ m.delivered }}</td>
         <td>{% if m.late %}<span class="overdue">{{ m.late }}</span>{% else %}0{% endif %}</td>
@@ -46,68 +127,72 @@
     {% endfor %}
     </tbody>
   </table></div>
-  <p class="muted">Commits vinculados a un entregable: {{ metrics.commits.linked_to_deliverables }} de {{ metrics.commits.total }} · sin integrante reconocido: {{ metrics.commits.unlinked_author }}.</p>
+  <p class="empty small">Commits vinculados a un entregable: {{ metrics.commits.linked_to_deliverables }} de {{ metrics.commits.total }} · sin integrante reconocido: {{ metrics.commits.unlinked_author }}.</p>
 </section>
 
-<section>
-  <h3>Hitos y entregables</h3>
-  {% for milestone in milestones %}
-  <details open>
-    <summary><strong>{{ milestone.title }}</strong> <span class="muted">· vence {{ milestone.due_date|date:"d/m/Y" }}</span></summary>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Entregable</th><th>Asignados</th><th>Estado</th><th>Vence</th></tr></thead>
-      <tbody>
-      {% for d in milestone.deliverables.all %}
-        <tr>
-          <td><a href="{% url 'web:deliverable' d.pk %}">{{ d.title }}</a></td>
-          <td>{% for a in d.assignees.all %}{{ a.get_full_name|default:a.username }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}</td>
-          <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span>{% if d.is_late %} <span class="badge status-late">Tarde</span>{% endif %}</td>
-          <td>{{ d.due_at|date:"d/m/Y H:i" }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="4" class="muted">Sin entregables.</td></tr>
+<section class="grid two">
+  <div class="card">
+    <header><h2>Integrantes</h2></header>
+    <ul class="feed">
+      {% for m in memberships %}
+      <li>
+        <span class="avatar">{{ m.user|initials }}</span>
+        <div class="stack" style="gap: 2px; min-width: 0">
+          <span><strong>{{ m.user.get_full_name|default:m.user.username }}</strong> <span class="badge role-{{ m.role }}">{{ m.get_role_display }}</span></span>
+          <span class="muted small">{{ m.responsibilities|default:"Sin responsabilidades registradas" }}</span>
+        </div>
+      </li>
       {% endfor %}
-      </tbody>
-    </table></div>
-  </details>
-  {% empty %}
-  <p class="muted">Este proyecto todavía no tiene hitos.</p>
-  {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <header><h2>Actividad en GitHub</h2>{% if project.github_repo %}<a href="https://github.com/{{ project.github_repo }}/commits" target="_blank" rel="noopener" class="small">Ver en GitHub</a>{% endif %}</header>
+    {% if commits %}
+    <ul class="feed">
+      {% for c in commits %}
+      <li>
+        <div class="stack" style="gap: 2px; min-width: 0">
+          <span>{{ c.message|truncatechars:70 }}{% if c.deliverable %} <a href="{% url 'web:deliverable' c.deliverable_id %}" class="mono">#D{{ c.deliverable_id }}</a>{% endif %}</span>
+          <span class="muted small"><span class="mono">{{ c.sha|slice:":7" }}</span> · {% if c.author %}{{ c.author.get_full_name|default:c.author.username }}{% else %}{{ c.author_name|default:"autor sin vincular" }}{% endif %}</span>
+        </div>
+        <span class="when">{{ c.committed_at|date:"d M" }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted small">Todavía no hay commits. Se cargan con el webhook o con la sincronización.</p>{% endif %}
+  </div>
 </section>
 
-<section>
-  <h3>Reportes</h3>
-  <p>
-    <a href="{% url 'reports:project' project.pk %}">Reporte imprimible (PDF)</a> ·
-    <a href="{% url 'reports:deliverables_csv' project.pk %}">Entregables (CSV)</a> ·
-    <a href="{% url 'reports:members_csv' project.pk %}">Integrantes (CSV)</a>
-    {% if can_review %} · <a href="{% url 'reports:audit_csv' project.pk %}">Auditoría (CSV)</a>
-    · <a href="{% url 'project_audit' project.pk %}">Auditoría en la API</a>{% endif %}
-  </p>
+<section class="card no-print">
+  <header><h2>Reportes</h2></header>
+  <div class="actions">
+    <a href="{% url 'reports:project' project.pk %}" class="btn secondary">Reporte imprimible (PDF)</a>
+    <a href="{% url 'reports:deliverables_csv' project.pk %}" class="btn secondary">Entregables (CSV)</a>
+    <a href="{% url 'reports:members_csv' project.pk %}" class="btn secondary">Integrantes (CSV)</a>
+    {% if can_review %}<a href="{% url 'reports:audit_csv' project.pk %}" class="btn secondary">Auditoría (CSV)</a>{% endif %}
+  </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script src="{% static 'web/vendor/chart-4.4.4.umd.min.js' %}"></script>
 <script>
+  Chart.defaults.font.family = "'IBM Plex Sans', system-ui, sans-serif";
+  Chart.defaults.color = "#4A5160";
   const chart = JSON.parse(document.getElementById("chart-data").textContent);
-  const integers = { y: { beginAtZero: true, ticks: { precision: 0 } } };
   new Chart(document.getElementById("status-chart"), {
     type: "doughnut",
-    data: {
-      labels: chart.status_labels,
-      datasets: [{ data: chart.status_values, backgroundColor: ["#9ca3af", "#3b82f6", "#ef4444", "#f59e0b", "#22c55e", "#ec4899"] }],
-    },
-    options: { maintainAspectRatio: false, plugins: { legend: { position: "right" } } },
+    data: { labels: chart.status_labels, datasets: [{ data: chart.status_values, backgroundColor: ["#AEB5C2", "#4C7BE0", "#E08A2E", "#E3B341", "#3E9B5F", "#D2465A"], borderWidth: 0 }] },
+    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: { position: "bottom", labels: { boxWidth: 10 } } } },
   });
   new Chart(document.getElementById("commits-chart"), {
     type: "line",
-    data: { labels: chart.weeks, datasets: [{ label: "Commits", data: chart.commits, borderColor: "#4f6bed", backgroundColor: "rgba(79,107,237,0.15)", fill: true, tension: 0.3 }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: integers },
+    data: { labels: chart.weeks, datasets: [{ label: "Commits", data: chart.commits, borderColor: "#2747C8", backgroundColor: "rgba(39,71,200,0.12)", fill: true, tension: 0.3 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
   });
   new Chart(document.getElementById("members-chart"), {
     type: "bar",
-    data: { labels: chart.members, datasets: [{ label: "Commits", data: chart.member_commits, backgroundColor: "#4f6bed" }] },
+    data: { labels: chart.members, datasets: [{ label: "Commits", data: chart.member_commits, backgroundColor: "#2747C8", borderRadius: 4 }] },
     options: { indexAxis: "y", maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } },
   });
 </script>

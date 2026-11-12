@@ -1,14 +1,23 @@
 {% extends "web/base.html" %}
+{% load web_extras %}
 {% block title %}Mi perfil{% endblock %}
 {% block content %}
-<article style="max-width: 560px;">
-  <hgroup>
-    <h2>Mi perfil</h2>
-    <p>{{ user.username }} · {{ user.email }} · {{ user.get_global_role_display }}</p>
-  </hgroup>
+<div class="page-head">
+  <div class="title">
+    <h1>Mi perfil</h1>
+    <p class="muted">{{ user.username }} · {{ user.email }} · {{ user.get_global_role_display }}</p>
+  </div>
+</div>
+<section class="card" style="max-width: 560px">
   <form method="post">{% csrf_token %}
-    {{ form.as_div }}
-    <button type="submit">Guardar</button>
+    {% for field in form %}
+    <div class="field">
+      {{ field.label_tag }}{{ field }}
+      {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn">Guardar</button>
   </form>
-</article>
+</section>
 {% endblock %}

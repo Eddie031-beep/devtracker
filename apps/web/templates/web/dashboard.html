@@ -1,88 +1,124 @@
 {% extends "web/base.html" %}
-{% load static %}
+{% load static web_extras %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
-<hgroup>
-  <h2>Hola, {{ user.first_name|default:user.username }}</h2>
-  <p>Panel de {{ user.get_global_role_display|lower }}</p>
-</hgroup>
+<div class="page-head">
+  <div class="title">
+    <h1>Hola, {{ user.first_name|default:user.username }}</h1>
+    <p class="muted">Panel de {{ user.get_global_role_display|lower }}{% if role == "leader" %} · líder de proyecto{% endif %}</p>
+  </div>
+</div>
 
-<section class="kpis">
-  <article class="kpi"><strong>{{ projects|length }}</strong><span>Proyectos</span></article>
-  <article class="kpi"><strong>{{ pending|length }}</strong><span>Entregas pendientes</span></article>
-  {% if is_reviewer %}<article class="kpi"><strong>{{ to_review|length }}</strong><span>Por revisar</span></article>{% endif %}
-  {% if overview %}
-  <article class="kpi"><strong>{{ overview.users }}</strong><span>Usuarios activos</span></article>
-  <article class="kpi"><strong>{{ overview.deliverables }}</strong><span>Entregables en total</span></article>
+<section class="grid kpis" aria-label="Resumen">
+  <div class="kpi"><strong>{{ kpis.pending }}</strong><span>Pendientes</span></div>
+  <div class="kpi"><strong>{{ kpis.in_review }}</strong><span>Entregados, en revisión</span></div>
+  <div class="kpi{% if kpis.late %} warn{% endif %}"><strong>{{ kpis.late }}</strong><span>Entregados tarde</span></div>
+  <div class="kpi"><strong>{{ kpis.approved }}</strong><span>Aprobados</span></div>
+</section>
+
+<section class="card">
+  <header><h2>Qué te toca hacer</h2></header>
+  {% if role == "student" %}
+  <ol class="steps">
+    <li><span>En <a href="{% url 'web:profile' %}">Mi perfil</a>, registra tu usuario de GitHub: así tus commits quedan a tu nombre.</span></li>
+    <li><span>Abre cada entregable de <strong>Mis entregas pendientes</strong> y entrégalo con el enlace (PR, release o documento).</span></li>
+    <li><span>Al hacer commits, escribe <code>#D</code> y el número del entregable en el mensaje (ej. <code>Agrega login #D12</code>).</span></li>
+    <li><span>En <a href="{% url 'web:notifications' %}">Avisos</a> verás cuando te evalúen. Si te rechazan, corrige y entrega una nueva versión.</span></li>
+  </ol>
+  {% elif role == "leader" %}
+  <ol class="steps">
+    <li><span>Entra a tu proyecto y crea los <strong>hitos</strong> y <strong>entregables</strong>, asignando a cada integrante su parte.</span></li>
+    <li><span>Cada integrante recibe el aviso y entrega desde su cuenta.</span></li>
+    <li><span>Revisa la lista de abajo con lo que espera revisión: aprueba o rechaza con nota y comentario.</span></li>
+    <li><span>Sigue el avance en las métricas del proyecto y descarga los reportes o la auditoría.</span></li>
+  </ol>
+  {% elif role == "evaluator" %}
+  <ol class="steps">
+    <li><span>Abajo aparecen los entregables que esperan tu revisión.</span></li>
+    <li><span>Abre cada uno, revisa sus versiones y commits, y apruébalo o recházalo con nota y comentario.</span></li>
+    <li><span>En cada proyecto tienes las métricas por integrante, los reportes y la auditoría.</span></li>
+  </ol>
+  {% else %}
+  <ol class="steps">
+    <li><span>Como administrador ves todos los proyectos y el resumen general de la plataforma.</span></li>
+    <li><span>Crea usuarios y asigna roles desde Administración; el líder de cada proyecto organiza hitos y entregables.</span></li>
+    <li><span>Puedes revisar y evaluar cualquier entrega, y consultar la auditoría de cada proyecto.</span></li>
+  </ol>
   {% endif %}
 </section>
 
 {% if overview %}
-<section>
-  <h3>Resumen general</h3>
-  <article><div class="chart-box"><canvas id="overview-chart"></canvas></div></article>
+<section class="card">
+  <header><h2>Resumen general</h2><span class="muted small">{{ overview.projects }} proyectos · {{ overview.users }} usuarios activos · {{ overview.deliverables }} entregables</span></header>
+  <div class="chart-box"><canvas id="overview-chart" aria-label="Entregables por estado" role="img"></canvas></div>
   {{ overview.chart|json_script:"overview-data" }}
 </section>
 {% endif %}
 
 {% if is_reviewer %}
-<section>
-  <h3>Por revisar</h3>
+<section class="card flush">
+  <header><h2>Por revisar</h2><span class="muted small">{{ to_review|length }} entrega{{ to_review|length|pluralize }}</span></header>
   {% if to_review %}
   <div class="table-wrap"><table>
-    <thead><tr><th>Entregable</th><th>Proyecto</th><th>Estado</th><th>Entregado</th></tr></thead>
+    <thead><tr><th>Entregable</th><th>Proyecto</th><th>Entregó</th><th>Estado</th><th>Fecha de entrega</th></tr></thead>
     <tbody>
     {% for d in to_review %}
       <tr>
-        <td><a href="{% url 'web:deliverable' d.pk %}">{{ d.title }}</a></td>
+        <td><a href="{% url 'web:deliverable' d.pk %}"><span class="mono">#D{{ d.pk }}</span> {{ d.title }}</a></td>
         <td>{{ d.milestone.project.name }}</td>
+        <td>{% for a in d.assignees.all %}{{ a.get_full_name|default:a.username }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
         <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span></td>
-        <td>{{ d.submitted_at|date:"d/m/Y H:i"|default:"—" }}</td>
+        <td>{{ d.submitted_at|date:"d M · H:i"|default:"—" }}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table></div>
-  {% else %}<p class="muted">No hay entregas esperando revisión.</p>{% endif %}
+  {% else %}<p class="empty">No hay entregas esperando revisión.</p>{% endif %}
 </section>
 {% endif %}
 
-<section>
-  <h3>Mis entregas pendientes</h3>
+<section class="card flush">
+  <header><h2>Mis entregas pendientes</h2><a href="{% url 'web:my_deliverables' %}" class="small">Ver todos mis entregables</a></header>
   {% if pending %}
   <div class="table-wrap"><table>
-    <thead><tr><th>Entregable</th><th>Proyecto</th><th>Estado</th><th>Vence</th></tr></thead>
+    <thead><tr><th>Entregable</th><th>Proyecto · hito</th><th>Estado</th><th>Vence</th></tr></thead>
     <tbody>
     {% for d in pending %}
       <tr>
-        <td><a href="{% url 'web:deliverable' d.pk %}">{{ d.title }}</a></td>
-        <td>{{ d.milestone.project.name }}</td>
+        <td><a href="{% url 'web:deliverable' d.pk %}"><span class="mono">#D{{ d.pk }}</span> {{ d.title }}</a></td>
+        <td>{{ d.milestone.project.name }} · {{ d.milestone.title }}</td>
         <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span></td>
-        <td class="{% if d.due_at < now %}overdue{% endif %}">{{ d.due_at|date:"d/m/Y H:i" }}{% if d.due_at < now %} · vencido{% endif %}</td>
+        <td class="{% if d.due_at < now %}overdue{% endif %}">{{ d.due_at|date:"d M · H:i" }}{% if d.due_at < now %} · vencido{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table></div>
-  {% else %}<p class="muted">No tienes entregas pendientes.</p>{% endif %}
+  {% else %}<p class="empty">No tienes entregas pendientes.</p>{% endif %}
 </section>
 
-<section>
-  <h3>Mis proyectos</h3>
+<section class="stack">
+  <h2>Proyectos</h2>
   {% if projects %}
-  <div class="table-wrap"><table>
-    <thead><tr><th>Proyecto</th><th>Mi rol</th><th>Entregables</th><th>Aprobados</th><th>Repositorio</th></tr></thead>
-    <tbody>
+  <div class="grid two">
     {% for p in projects %}
-      <tr>
-        <td><a href="{% url 'web:project' p.pk %}">{{ p.name }}</a></td>
-        <td>{{ p.my_role }}</td>
-        <td>{{ p.total }}</td>
-        <td>{{ p.approved }}</td>
-        <td>{% if p.github_repo %}<a href="https://github.com/{{ p.github_repo }}" target="_blank" rel="noopener">{{ p.github_repo }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
-      </tr>
+    <a href="{% url 'web:project' p.pk %}" class="card stack" style="color: inherit; text-decoration: none">
+      <div class="row" style="justify-content: space-between">
+        <h3 style="font-size: 18px">{{ p.name }}</h3>
+        <span class="badge role-{{ p.my_role }}">{{ p.my_role_label }}</span>
+      </div>
+      <p class="muted small">{{ p.description|default:"Proyecto de software"|truncatechars:110 }}</p>
+      <div class="stack" style="gap: 6px">
+        <div class="row small" style="justify-content: space-between"><span>{{ p.approved }} de {{ p.total }} aprobados</span><span class="muted">{{ p.approved|percent:p.total }}%</span></div>
+        <div class="progress" aria-hidden="true"><span style="width: {{ p.approved|percent:p.total }}%"></span></div>
+      </div>
+      <div class="row" style="justify-content: space-between">
+        <div class="avatars">{% for m in p.memberships.all|slice:":6" %}<span class="avatar sm" title="{{ m.user.get_full_name|default:m.user.username }}">{{ m.user|initials }}</span>{% endfor %}</div>
+        <span class="small muted mono">{{ p.github_repo|default:"Sin repositorio vinculado" }}</span>
+      </div>
+    </a>
     {% endfor %}
-    </tbody>
-  </table></div>
-  {% else %}<p class="muted">Todavía no participas en ningún proyecto.</p>{% endif %}
+  </div>
+  {% else %}<p class="card muted">Todavía no participas en ningún proyecto.</p>{% endif %}
 </section>
 {% endblock %}
 
@@ -90,10 +126,11 @@
 {% if overview %}
 <script src="{% static 'web/vendor/chart-4.4.4.umd.min.js' %}"></script>
 <script>
+  Chart.defaults.font.family = "'IBM Plex Sans', system-ui, sans-serif";
   const data = JSON.parse(document.getElementById("overview-data").textContent);
   new Chart(document.getElementById("overview-chart"), {
     type: "bar",
-    data: { labels: data.labels, datasets: [{ label: "Entregables por estado", data: data.values, backgroundColor: "#4f6bed" }] },
+    data: { labels: data.labels, datasets: [{ label: "Entregables", data: data.values, backgroundColor: "#2747C8", borderRadius: 6 }] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
   });
 </script>

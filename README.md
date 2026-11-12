@@ -232,6 +232,18 @@ En `/` (login en `/login/` con el mismo usuario de la API):
 
 Los permisos son los mismos que en la API: proyecto o entregable ajeno → 404.
 
+**Usuarios del equipo:** `python manage.py crear_equipo --password <clave> --proyecto 1` crea (o actualiza) las
+cuentas de Harold, Brayan, Carlos y Eliecias, más un evaluador `profesor`, con esa contraseña, su usuario de
+GitHub, su rol en el proyecto y sus responsabilidades. Cada uno puede cambiarla después.
+
+**Cómo participa cada uno en la web:**
+
+| Rol | Qué hace |
+|---|---|
+| Líder | En el proyecto crea hitos y entregables («Nuevo hito», «Nuevo entregable») y asigna a cada integrante; aprueba o rechaza con nota |
+| Integrante | Ve sus pendientes en el inicio y en *Mis entregables*, entrega con un enlace y sigue sus avisos |
+| Evaluador | Ve lo que espera revisión, evalúa con nota y comentario, consulta métricas, reportes y la auditoría (`/proyectos/<id>/auditoria/`) |
+
 **Datos de ejemplo para la demo:** `python manage.py cargar_demo --proyecto 1` crea 3 hitos y 15
 entregables repartidos entre los integrantes, con entregas a tiempo y tarde, rechazos, reentregas y
 evaluaciones. Usa el flujo real, así que también llena la auditoría. Si ya se cargó, no hace nada.

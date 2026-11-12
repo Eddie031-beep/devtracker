@@ -1,32 +1,36 @@
 {% extends "web/base.html" %}
 {% block title %}Avisos{% endblock %}
 {% block content %}
-<hgroup>
-  <h2>Avisos</h2>
-  <p>Entregas, evaluaciones, asignaciones y vencimientos de tus proyectos</p>
-</hgroup>
-{% if unread_notifications %}
-<form method="post">{% csrf_token %}
-  <button type="submit" class="secondary outline">Marcar todos como leídos</button>
-</form>
-{% endif %}
-{% if items %}
-<div class="table-wrap"><table>
-  <thead><tr><th>Aviso</th><th>Proyecto</th><th>Fecha</th></tr></thead>
-  <tbody>
-  {% for n in items %}
-    <tr>
-      <td>
-        <a href="{% url 'web:notification_open' n.pk %}" class="{% if not n.read_at %}unread{% endif %}">{{ n.title }}</a><br>
-        <small class="muted">{{ n.message|truncatechars:140 }}</small>
-      </td>
-      <td>{{ n.project.name|default:"—" }}</td>
-      <td>{{ n.created_at|date:"d/m/Y H:i" }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table></div>
-{% else %}
-<p class="muted">No tienes avisos.</p>
-{% endif %}
+<div class="page-head">
+  <div class="title">
+    <h1>Avisos</h1>
+    <p class="muted">Entregas, evaluaciones, asignaciones y vencimientos de tus proyectos.</p>
+  </div>
+  {% if unread_notifications %}
+  <form method="post" class="actions">{% csrf_token %}
+    <button type="submit" class="btn secondary">Marcar todos como leídos</button>
+  </form>
+  {% endif %}
+</div>
+<section class="card flush">
+  {% if items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Aviso</th><th>Proyecto</th><th>Fecha</th></tr></thead>
+    <tbody>
+    {% for n in items %}
+      <tr>
+        <td>
+          <div class="row" style="gap: 8px">{% if not n.read_at %}<span class="dot" aria-label="Sin leer"></span>{% endif %}<a href="{% url 'web:notification_open' n.pk %}" class="{% if not n.read_at %}unread{% endif %}">{{ n.title }}</a></div>
+          <span class="muted small">{{ n.message|truncatechars:140 }}</span>
+        </td>
+        <td>{{ n.project.name|default:"—" }}</td>
+        <td class="muted" style="white-space: nowrap">{{ n.created_at|date:"d M · H:i" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="empty">No tienes avisos.</p>
+  {% endif %}
+</section>
 {% endblock %}

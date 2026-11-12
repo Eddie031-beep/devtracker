@@ -1,39 +1,72 @@
-{% load static %}<!doctype html>
+{% load static web_extras %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}DevTracker{% endblock %} · DevTracker</title>
-  <link rel="stylesheet" href="{% static 'web/vendor/pico-2.0.6.min.css' %}">
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
 </head>
 <body>
-  <header class="container">
-    <nav>
-      <ul><li><a href="{% url 'web:dashboard' %}" class="brand">DevTracker</a></li></ul>
-      {% if user.is_authenticated %}
-      <ul>
-        <li><a href="{% url 'web:dashboard' %}">Inicio</a></li>
-        <li><a href="{% url 'web:notifications' %}" title="Notificaciones">Avisos{% if unread_notifications %} <span class="badge count">{{ unread_notifications }}</span>{% endif %}</a></li>
-        <li><a href="{% url 'api_docs' %}">API</a></li>
-        {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Admin</a></li>{% endif %}
-        <li><a href="{% url 'web:profile' %}" class="secondary">{{ user.get_full_name|default:user.username }} · {{ user.get_global_role_display }}</a></li>
-        <li>
-          <form method="post" action="{% url 'web:logout' %}">{% csrf_token %}
-            <button type="submit" class="link">Salir</button>
-          </form>
-        </li>
-      </ul>
+{% block body %}
+<div class="app">
+  <nav class="sidebar" aria-label="Principal">
+    <a href="{% url 'web:dashboard' %}" class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"></rect><path d="M8 12l3 3 5-6"></path></svg>
+      <span>DevTracker</span>
+    </a>
+    <div class="nav">
+      <a href="{% url 'web:dashboard' %}"{% if nav == "home" %} aria-current="page"{% endif %}>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+        <span>Inicio y proyectos</span>
+      </a>
+      <a href="{% url 'web:my_deliverables' %}"{% if nav == "mine" %} aria-current="page"{% endif %}>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6h.01M4 12h.01M4 18h.01"></path></svg>
+        <span>Mis entregables</span>
+      </a>
+      <a href="{% url 'web:notifications' %}"{% if nav == "notifications" %} aria-current="page"{% endif %}>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        <span>Avisos</span>
+        {% if unread_notifications %}<span class="badge count">{{ unread_notifications }}</span>{% endif %}
+      </a>
+      <a href="{% url 'web:profile' %}"{% if nav == "profile" %} aria-current="page"{% endif %}>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
+        <span>Mi perfil</span>
+      </a>
+    </div>
+    <div class="nav">
+      <span class="nav-label">Herramientas</span>
+      <a href="{% url 'api_docs' %}">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12"></path></svg>
+        <span>API (Swagger)</span>
+      </a>
+      {% if user.is_staff %}
+      <a href="{% url 'admin:index' %}">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
+        <span>Administración</span>
+      </a>
       {% endif %}
-    </nav>
-  </header>
-  <main class="container">
-    {% if messages %}
-    <ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>
-    {% endif %}
-    {% block content %}{% endblock %}
+    </div>
+    <div class="me">
+      <span class="avatar">{{ user|initials }}</span>
+      <a href="{% url 'web:profile' %}" class="who">{{ user.get_full_name|default:user.username }}<span>{{ user.get_global_role_display }}</span></a>
+      <form method="post" action="{% url 'web:logout' %}">{% csrf_token %}
+        <button type="submit" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path><path d="M10 16l-4-4 4-4M6 12h10"></path></svg>
+        </button>
+      </form>
+    </div>
+  </nav>
+  <main class="main">
+    <div class="container">
+      {% if messages %}
+      <ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+      <footer class="foot">DevTracker · Desarrollo de Software VIII · Universidad Tecnológica de Panamá</footer>
+    </div>
   </main>
-  <footer class="container muted">DevTracker · Desarrollo de Software VIII · UTP</footer>
-  {% block scripts %}{% endblock %}
+</div>
+{% endblock %}
+{% block scripts %}{% endblock %}
 </body>
 </html>
