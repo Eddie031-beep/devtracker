@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from kombu.exceptions import OperationalError
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -59,6 +60,7 @@ class ProjectCommitSyncView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=None, responses={202: OpenApiResponse(description="Sincronización en cola"), 503: OpenApiResponse(description="Redis no disponible")})
     def post(self, request, pk):
         project = get_project_for_user(request, pk)
         if not (is_global_admin(request.user) or user_is_project_leader(request.user, project)):

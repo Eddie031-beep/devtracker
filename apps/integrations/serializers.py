@@ -25,8 +25,8 @@ class CommitSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_author_display(self, obj):
+    def get_author_display(self, obj) -> str | None:
         return str(obj.author) if obj.author else None
 
-    def get_deliverable_title(self, obj):
+    def get_deliverable_title(self, obj) -> str | None:
         return obj.deliverable.title if obj.deliverable else None

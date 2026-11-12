@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -16,4 +17,7 @@ urlpatterns = [
     path("api/", include("apps.audit.urls")),
     path("api/", include("apps.integrations.urls_projects")),
     path("api/integrations/", include("apps.integrations.urls")),
+    # Documentación de la API: esquema OpenAPI y Swagger UI (públicos, solo describen los endpoints)
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api_docs"),
 ]

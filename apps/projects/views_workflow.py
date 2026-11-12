@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -45,6 +46,7 @@ class DeliverableSubmitSerializer(serializers.Serializer):
 class DeliverableSubmitView(DeliverableActionView):
     """POST /api/deliverables/{id}/submit/ — el integrante asignado entrega."""
 
+    @extend_schema(request=DeliverableSubmitSerializer, responses=DeliverableSerializer)
     def post(self, request, pk):
         deliverable = self.get_deliverable(pk)
         data = DeliverableSubmitSerializer(data=request.data)
@@ -65,6 +67,7 @@ class StatusChangeSerializer(serializers.Serializer):
 class DeliverableStatusView(DeliverableActionView):
     """POST /api/deliverables/{id}/status/ — evaluador o líder revisa: {"status": "in_review"}."""
 
+    @extend_schema(request=StatusChangeSerializer, responses=DeliverableSerializer)
     def post(self, request, pk):
         deliverable = self.get_deliverable(pk)
         data = StatusChangeSerializer(data=request.data)
