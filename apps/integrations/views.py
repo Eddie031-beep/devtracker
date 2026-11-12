@@ -1,6 +1,7 @@
 import json
 
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -17,6 +18,11 @@ class GitHubWebhookView(APIView):
     authentication_classes = []  # sin sesión ni JWT (y sin CSRF)
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request={"application/json": dict},
+        responses={200: OpenApiResponse(description="Commits guardados"), 403: OpenApiResponse(description="Firma inválida")},
+        description="Endpoint para GitHub: exige la cabecera X-Hub-Signature-256.",
+    )
     def post(self, request, project_id):
         project = get_object_or_404(Project, pk=project_id)
         # La firma se calcula sobre los bytes exactos que mandó GitHub, no sobre el JSON ya parseado

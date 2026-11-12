@@ -54,12 +54,17 @@ INSTALLED_APPS = [
     # Terceros
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # Swagger UI servido desde nuestros estáticos, sin CDN
     # Apps del proyecto
     "apps.core",
     "apps.accounts",
     "apps.projects",
     "apps.audit",
     "apps.integrations",
+    "apps.evaluations",
+    "apps.metrics",
+    "apps.web",
 ]
 
 MIDDLEWARE = [
@@ -163,12 +168,28 @@ REST_FRAMEWORK = {
     ],
     # Todo endpoint exige autenticación salvo que se indique lo contrario (regla RBAC en backend)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # Documentación OpenAPI generada a partir de las vistas (drf-spectacular)
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DevTracker API",
+    "DESCRIPTION": "API de gestión y auditoría de proyectos de software (Proyecto Final, Desarrollo de Software VIII, UTP).",
+    "VERSION": "0.3.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+# Interfaz web (Etapa 3): login con sesión de Django
+LOGIN_URL = "web:login"
+LOGIN_REDIRECT_URL = "web:dashboard"
+LOGOUT_REDIRECT_URL = "web:login"
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")

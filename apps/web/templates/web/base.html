@@ -1,0 +1,38 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DevTracker{% endblock %} · DevTracker</title>
+  <link rel="stylesheet" href="{% static 'web/vendor/pico-2.0.6.min.css' %}">
+  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul><li><a href="{% url 'web:dashboard' %}" class="brand">DevTracker</a></li></ul>
+      {% if user.is_authenticated %}
+      <ul>
+        <li><a href="{% url 'web:dashboard' %}">Inicio</a></li>
+        <li><a href="{% url 'api_docs' %}">API</a></li>
+        {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Admin</a></li>{% endif %}
+        <li class="muted">{{ user.get_full_name|default:user.username }} · {{ user.get_global_role_display }}</li>
+        <li>
+          <form method="post" action="{% url 'web:logout' %}">{% csrf_token %}
+            <button type="submit" class="link">Salir</button>
+          </form>
+        </li>
+      </ul>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="container">
+    {% if messages %}
+    <ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container muted">DevTracker · Desarrollo de Software VIII · UTP</footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -32,6 +32,8 @@ class Action(models.TextChoices):
     MEMBER_REMOVED = "member.removed", "Integrante removido"
     # Reservada para el issue #19 (Historial de versiones)
     VERSION_CREATED = "version.created", "Nueva versión de entregable"
+    # Etapa 3: evaluación con nota
+    DELIVERABLE_EVALUATED = "deliverable.evaluated", "Entregable evaluado"
 
 
 class AuditQuerySet(models.QuerySet):
