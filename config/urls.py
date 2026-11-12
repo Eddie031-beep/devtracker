@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/", include("apps.integrations.urls_projects")),
     path("api/", include("apps.evaluations.urls")),
     path("api/", include("apps.metrics.urls")),
+    path("api/", include("apps.notifications.urls")),
     path("api/integrations/", include("apps.integrations.urls")),
     # Documentación de la API: esquema OpenAPI y Swagger UI (públicos, solo describen los endpoints)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

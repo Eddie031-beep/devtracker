@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.evaluations",
     "apps.metrics",
     "apps.web",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -91,6 +92,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.notifications.context_processors.unread_notifications",
             ],
         },
     },
@@ -190,6 +192,11 @@ SIMPLE_JWT = {
 LOGIN_URL = "web:login"
 LOGIN_REDIRECT_URL = "web:dashboard"
 LOGOUT_REDIRECT_URL = "web:login"
+
+# Notificaciones (Etapa 4): además del aviso en la app, se manda un correo con EMAIL_BACKEND.
+# SITE_URL arma el enlace del correo; en Railway se toma del dominio público.
+NOTIFICATIONS_SEND_EMAIL = env.bool("NOTIFICATIONS_SEND_EMAIL", default=True)
+SITE_URL = env("SITE_URL", default=f"https://{RAILWAY_PUBLIC_DOMAIN}" if RAILWAY_PUBLIC_DOMAIN else "http://localhost:8000")
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")

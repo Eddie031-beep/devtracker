@@ -1,0 +1,32 @@
+{% extends "web/base.html" %}
+{% block title %}Avisos{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Avisos</h2>
+  <p>Entregas, evaluaciones, asignaciones y vencimientos de tus proyectos</p>
+</hgroup>
+{% if unread_notifications %}
+<form method="post">{% csrf_token %}
+  <button type="submit" class="secondary outline">Marcar todos como leídos</button>
+</form>
+{% endif %}
+{% if items %}
+<div class="table-wrap"><table>
+  <thead><tr><th>Aviso</th><th>Proyecto</th><th>Fecha</th></tr></thead>
+  <tbody>
+  {% for n in items %}
+    <tr>
+      <td>
+        <a href="{% url 'web:notification_open' n.pk %}" class="{% if not n.read_at %}unread{% endif %}">{{ n.title }}</a><br>
+        <small class="muted">{{ n.message|truncatechars:140 }}</small>
+      </td>
+      <td>{{ n.project.name|default:"—" }}</td>
+      <td>{{ n.created_at|date:"d/m/Y H:i" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<p class="muted">No tienes avisos.</p>
+{% endif %}
+{% endblock %}

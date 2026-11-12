@@ -14,6 +14,7 @@
       {% if user.is_authenticated %}
       <ul>
         <li><a href="{% url 'web:dashboard' %}">Inicio</a></li>
+        <li><a href="{% url 'web:notifications' %}" title="Notificaciones">Avisos{% if unread_notifications %} <span class="badge count">{{ unread_notifications }}</span>{% endif %}</a></li>
         <li><a href="{% url 'api_docs' %}">API</a></li>
         {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Admin</a></li>{% endif %}
         <li class="muted">{{ user.get_full_name|default:user.username }} · {{ user.get_global_role_display }}</li>

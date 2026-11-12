@@ -6,10 +6,12 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.evaluations.services import EVALUABLE_STATES, evaluate_deliverable
 from apps.metrics.services import project_metrics
+from apps.notifications.models import Notification
 from apps.projects.models import Deliverable, Project, ProjectMembership
 from apps.projects.permissions import filter_deliverables_for_user, filter_projects_for_user, is_global_admin
 from apps.projects.services import SUBMITTABLE_STATES, can_review, submit_deliverable
@@ -199,3 +201,25 @@ def deliverable_evaluate(request, pk):
             "Evaluación registrada.",
         )
     return redirect("web:deliverable", pk=pk)
+
+
+@login_required
+def notifications(request):
+    if request.method == "POST":
+        Notification.objects.filter(recipient=request.user, read_at__isnull=True).update(read_at=timezone.now())
+        messages.success(request, "Todos los avisos quedaron como leídos.")
+        return redirect("web:notifications")
+    items = Notification.objects.filter(recipient=request.user).select_related("project")[:50]
+    return render(request, "web/notifications.html", {"items": items})
+
+
+@login_required
+def notification_open(request, pk):
+    """Marca el aviso como leído y lleva a su página. Solo redirige a rutas de este mismo sitio."""
+    notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if notification.read_at is None:
+        notification.read_at = timezone.now()
+        notification.save(update_fields=["read_at"])
+    if notification.url and url_has_allowed_host_and_scheme(notification.url, allowed_hosts={request.get_host()}):
+        return redirect(notification.url)
+    return redirect("web:notifications")

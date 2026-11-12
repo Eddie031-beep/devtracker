@@ -3,6 +3,7 @@ from django.db import transaction
 
 from apps.audit.models import Action
 from apps.audit.services import log_action
+from apps.notifications.services import notify_evaluated
 from apps.projects.models import Deliverable
 from apps.projects.services import change_status
 
@@ -46,4 +47,5 @@ def evaluate_deliverable(deliverable, user, decision, score, feedback=""):
         deliverable,
         changes={"decision": {"before": None, "after": decision}, "score": {"before": None, "after": score}},
     )
+    notify_evaluated(evaluation)
     return evaluation

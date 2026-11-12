@@ -13,4 +13,6 @@ urlpatterns = [
     path("entregables/<int:pk>/", views.deliverable_detail, name="deliverable"),
     path("entregables/<int:pk>/entregar/", views.deliverable_submit, name="deliverable_submit"),
     path("entregables/<int:pk>/evaluar/", views.deliverable_evaluate, name="deliverable_evaluate"),
+    path("notificaciones/", views.notifications, name="notifications"),
+    path("notificaciones/<int:pk>/", views.notification_open, name="notification_open"),
 ]
