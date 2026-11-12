@@ -1,12 +1,11 @@
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
-    # Mientras no haya frontend (Etapa 3), la raíz lleva al admin
-    path("", RedirectView.as_view(url="/admin/", permanent=False)),
+    # Interfaz web: dashboard por rol, proyectos y entregables (Etapa 3)
+    path("", include("apps.web.urls")),
     path("admin/", admin.site.urls),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

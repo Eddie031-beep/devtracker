@@ -1,0 +1,102 @@
+{% extends "web/base.html" %}
+{% block title %}{{ deliverable.title }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'web:project' project.pk %}">← {{ project.name }}</a></p>
+<hgroup>
+  <h2>{{ deliverable.title }}</h2>
+  <p>{{ deliverable.milestone.title }}</p>
+</hgroup>
+
+<article>
+  <p>
+    <span class="badge status-{{ deliverable.status }}">{{ deliverable.get_status_display }}</span>
+    {% if deliverable.is_late %}<span class="badge status-late">Entregado tarde</span>{% endif %}
+  </p>
+  {% if deliverable.description %}<p>{{ deliverable.description|linebreaksbr }}</p>{% endif %}
+  <p class="muted">
+    Vence: {{ deliverable.due_at|date:"d/m/Y H:i" }} ·
+    Entregado: {{ deliverable.submitted_at|date:"d/m/Y H:i"|default:"todavía no" }} ·
+    Asignados: {% for a in deliverable.assignees.all %}{{ a.get_full_name|default:a.username }}{% if not forloop.last %}, {% endif %}{% empty %}nadie{% endfor %}
+  </p>
+</article>
+
+{% if can_submit %}
+<article>
+  <header><strong>Entregar</strong></header>
+  <form method="post" action="{% url 'web:deliverable_submit' deliverable.pk %}">{% csrf_token %}
+    {{ submit_form.as_div }}
+    <button type="submit">Entregar</button>
+  </form>
+  <small class="muted">La fecha la registra el servidor. Si ya venció, queda marcada como entrega tardía.</small>
+</article>
+{% endif %}
+
+{% if can_evaluate %}
+<article>
+  <header><strong>Evaluar</strong></header>
+  <form method="post" action="{% url 'web:deliverable_evaluate' deliverable.pk %}">{% csrf_token %}
+    {{ evaluate_form.as_div }}
+    <button type="submit">Registrar evaluación</button>
+  </form>
+</article>
+{% endif %}
+
+<section>
+  <h3>Evaluaciones</h3>
+  {% if evaluations %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha</th><th>Evaluador</th><th>Decisión</th><th>Nota</th><th>Retroalimentación</th></tr></thead>
+    <tbody>
+    {% for e in evaluations %}
+      <tr>
+        <td>{{ e.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ e.evaluator.get_full_name|default:e.evaluator.username }}</td>
+        <td><span class="badge status-{{ e.decision }}">{{ e.get_decision_display }}</span></td>
+        <td><strong>{{ e.score }}</strong></td>
+        <td>{{ e.feedback|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Todavía no hay evaluaciones.</p>{% endif %}
+</section>
+
+<section>
+  <h3>Historial de versiones</h3>
+  {% if versions %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Versión</th><th>Autor</th><th>Fecha</th><th>Enlace</th><th>Comentario</th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td>v{{ v.number }}</td>
+        <td>{{ v.author.get_full_name|default:v.author.username }}</td>
+        <td>{{ v.created_at|date:"d/m/Y H:i" }}</td>
+        <td><a href="{{ v.url }}" target="_blank" rel="noopener">abrir</a></td>
+        <td>{{ v.comment|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Todavía no hay versiones entregadas.</p>{% endif %}
+</section>
+
+<section>
+  <h3>Commits vinculados</h3>
+  {% if commits %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Commit</th><th>Autor</th><th>Fecha</th><th>Mensaje</th></tr></thead>
+    <tbody>
+    {% for c in commits %}
+      <tr>
+        <td>{% if c.url %}<a href="{{ c.url }}" target="_blank" rel="noopener">{{ c.sha|slice:":7" }}</a>{% else %}{{ c.sha|slice:":7" }}{% endif %}</td>
+        <td>{% if c.author %}{{ c.author.get_full_name|default:c.author.username }}{% else %}{{ c.author_name|default:"—" }}{% endif %}</td>
+        <td>{{ c.committed_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ c.message|truncatechars:80 }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Ningún commit menciona este entregable. Escribe <code>#D{{ deliverable.pk }}</code> en el mensaje del commit para vincularlo.</p>{% endif %}
+</section>
+{% endblock %}

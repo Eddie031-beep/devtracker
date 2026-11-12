@@ -8,9 +8,9 @@ class HealthTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
-    def test_root_redirects_to_admin(self):
+    def test_root_pide_iniciar_sesion(self):
         response = self.client.get("/")
-        self.assertRedirects(response, "/admin/", fetch_redirect_response=False)
+        self.assertRedirects(response, "/login/?next=/", fetch_redirect_response=False)
 
 
 class ApiDocsTests(TestCase):

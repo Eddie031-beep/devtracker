@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.integrations",
     "apps.evaluations",
     "apps.metrics",
+    "apps.web",
 ]
 
 MIDDLEWARE = [
@@ -184,6 +185,11 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+# Interfaz web (Etapa 3): login con sesión de Django
+LOGIN_URL = "web:login"
+LOGIN_REDIRECT_URL = "web:dashboard"
+LOGOUT_REDIRECT_URL = "web:login"
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")
