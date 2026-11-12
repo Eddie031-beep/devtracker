@@ -16,37 +16,6 @@
   <div class="kpi"><strong>{{ kpis.approved }}</strong><span>Aprobados</span></div>
 </section>
 
-<section class="card">
-  <header><h2>Qué te toca hacer</h2></header>
-  {% if role == "student" %}
-  <ol class="steps">
-    <li><span>En <a href="{% url 'web:profile' %}">Mi perfil</a>, registra tu usuario de GitHub: así tus commits quedan a tu nombre.</span></li>
-    <li><span>Abre cada entregable de <strong>Mis entregas pendientes</strong> y entrégalo con el enlace (PR, release o documento).</span></li>
-    <li><span>Al hacer commits, escribe <code>#D</code> y el número del entregable en el mensaje (ej. <code>Agrega login #D12</code>).</span></li>
-    <li><span>En <a href="{% url 'web:notifications' %}">Avisos</a> verás cuando te evalúen. Si te rechazan, corrige y entrega una nueva versión.</span></li>
-  </ol>
-  {% elif role == "leader" %}
-  <ol class="steps">
-    <li><span>Entra a tu proyecto y crea los <strong>hitos</strong> y <strong>entregables</strong>, asignando a cada integrante su parte.</span></li>
-    <li><span>Cada integrante recibe el aviso y entrega desde su cuenta.</span></li>
-    <li><span>Revisa la lista de abajo con lo que espera revisión: aprueba o rechaza con nota y comentario.</span></li>
-    <li><span>Sigue el avance en las métricas del proyecto y descarga los reportes o la auditoría.</span></li>
-  </ol>
-  {% elif role == "evaluator" %}
-  <ol class="steps">
-    <li><span>Abajo aparecen los entregables que esperan tu revisión.</span></li>
-    <li><span>Abre cada uno, revisa sus versiones y commits, y apruébalo o recházalo con nota y comentario.</span></li>
-    <li><span>En cada proyecto tienes las métricas por integrante, los reportes y la auditoría.</span></li>
-  </ol>
-  {% else %}
-  <ol class="steps">
-    <li><span>Como administrador ves todos los proyectos y el resumen general de la plataforma.</span></li>
-    <li><span>Crea usuarios y asigna roles desde Administración; el líder de cada proyecto organiza hitos y entregables.</span></li>
-    <li><span>Puedes revisar y evaluar cualquier entrega, y consultar la auditoría de cada proyecto.</span></li>
-  </ol>
-  {% endif %}
-</section>
-
 {% if overview %}
 <section class="card">
   <header><h2>Resumen general</h2><span class="muted small">{{ overview.projects }} proyectos · {{ overview.users }} usuarios activos · {{ overview.deliverables }} entregables</span></header>
