@@ -1,13 +1,16 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views
+from . import oauth, views
 
 app_name = "web"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
-    path("login/", auth_views.LoginView.as_view(template_name="web/login.html", redirect_authenticated_user=True), name="login"),
+    path("login/", views.LoginView.as_view(), name="login"),
+    path("login/github/", oauth.github_login, name="github_login"),
+    path("login/github/callback/", oauth.github_callback, name="github_callback"),
+    path("perfil/", views.profile, name="profile"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("proyectos/<int:pk>/", views.project_detail, name="project"),
     path("entregables/<int:pk>/", views.deliverable_detail, name="deliverable"),

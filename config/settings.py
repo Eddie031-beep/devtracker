@@ -209,6 +209,11 @@ CELERY_TIMEZONE = TIME_ZONE
 # obligatorio para privados. Basta un token fine-grained con permiso de solo lectura a «Contents».
 GITHUB_TOKEN = env("GITHUB_TOKEN", default="")
 
+# Inicio de sesión con GitHub (OAuth2, Etapa 4). Opcional: sin estas dos variables el botón no aparece.
+# Se crean en GitHub → Settings → Developer settings → OAuth Apps; callback: <dominio>/login/github/callback/
+GITHUB_OAUTH_CLIENT_ID = env("GITHUB_OAUTH_CLIENT_ID", default="")
+GITHUB_OAUTH_CLIENT_SECRET = env("GITHUB_OAUTH_CLIENT_SECRET", default="")
+
 # Solo en Railway (no en CI ni local): su proxy termina el HTTPS y nos pasa X-Forwarded-Proto
 if RAILWAY_PUBLIC_DOMAIN:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

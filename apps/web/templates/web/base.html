@@ -17,7 +17,7 @@
         <li><a href="{% url 'web:notifications' %}" title="Notificaciones">Avisos{% if unread_notifications %} <span class="badge count">{{ unread_notifications }}</span>{% endif %}</a></li>
         <li><a href="{% url 'api_docs' %}">API</a></li>
         {% if user.is_staff %}<li><a href="{% url 'admin:index' %}">Admin</a></li>{% endif %}
-        <li class="muted">{{ user.get_full_name|default:user.username }} · {{ user.get_global_role_display }}</li>
+        <li><a href="{% url 'web:profile' %}" class="secondary">{{ user.get_full_name|default:user.username }} · {{ user.get_global_role_display }}</a></li>
         <li>
           <form method="post" action="{% url 'web:logout' %}">{% csrf_token %}
             <button type="submit" class="link">Salir</button>

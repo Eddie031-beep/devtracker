@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
@@ -10,13 +11,15 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.evaluations.services import EVALUABLE_STATES, evaluate_deliverable
+from apps.integrations.services import link_user_commits
 from apps.metrics.services import project_metrics
 from apps.notifications.models import Notification
 from apps.projects.models import Deliverable, Project, ProjectMembership
 from apps.projects.permissions import filter_deliverables_for_user, filter_projects_for_user, is_global_admin
 from apps.projects.services import SUBMITTABLE_STATES, can_review, submit_deliverable
 
-from .forms import EvaluateForm, SubmitForm
+from . import oauth
+from .forms import EvaluateForm, ProfileForm, SubmitForm
 
 User = get_user_model()
 Status = Deliverable.Status
@@ -223,3 +226,25 @@ def notification_open(request, pk):
     if notification.url and url_has_allowed_host_and_scheme(notification.url, allowed_hosts={request.get_host()}):
         return redirect(notification.url)
     return redirect("web:notifications")
+
+
+class LoginView(auth_views.LoginView):
+    template_name = "web/login.html"
+    redirect_authenticated_user = True
+
+    def get_context_data(self, **kwargs):
+        return {**super().get_context_data(**kwargs), "github_oauth": oauth.is_configured()}
+
+
+@login_required
+def profile(request):
+    previous = request.user.github_username
+    form = ProfileForm(request.POST or None, instance=request.user)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        if user.github_username and user.github_username != previous:
+            # Igual que en PATCH /api/auth/me/: los commits anteriores sin dueño pasan a ser suyos
+            link_user_commits(user)
+        messages.success(request, "Perfil actualizado.")
+        return redirect("web:profile")
+    return render(request, "web/profile.html", {"form": form})
