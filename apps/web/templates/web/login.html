@@ -19,5 +19,8 @@
     <input type="hidden" name="next" value="{{ next }}">
     <button type="submit">Entrar</button>
   </form>
+  {% if github_oauth %}
+  <a href="{% url 'web:github_login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" role="button" class="secondary outline" style="width: 100%;">Entrar con GitHub</a>
+  {% endif %}
 </article>
 {% endblock %}

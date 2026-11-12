@@ -25,3 +25,11 @@
 nav form { margin: 0; }
 nav button.link { margin: 0; padding: 0; border: 0; background: none; color: var(--pico-primary); font-size: inherit; line-height: inherit; vertical-align: baseline; }
 footer { margin-top: 2rem; font-size: 0.8rem; }
+.badge.count { background: #ef4444; color: #fff; }
+.unread { font-weight: 600; }
+.unread::before { content: "● "; color: #ef4444; }
+@media print {
+  header, footer, .no-print, .messages { display: none !important; }
+  body { font-size: 11pt; }
+  table { font-size: 9.5pt; }
+}

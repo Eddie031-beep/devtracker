@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.test.utils import override_settings
 from django.utils import timezone
 
 from apps.audit.models import Action
@@ -52,6 +53,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--proyecto", type=int, default=1, help="id del proyecto (por defecto 1)")
 
+    # Los avisos sí se crean en la app, pero sin mandar un correo por cada paso de la demo
+    @override_settings(NOTIFICATIONS_SEND_EMAIL=False)
     @transaction.atomic
     def handle(self, *args, **options):
         project = Project.objects.filter(pk=options["proyecto"]).first()

@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.audit.models import Action
 from apps.audit.services import diff, log_action, snapshot
+from apps.notifications.services import notify_submitted
 
 from .models import Deliverable, DeliverableVersion, ProjectMembership
 
@@ -88,6 +89,7 @@ def submit_deliverable(deliverable, user, at=None, url=None, comment=""):
     if url:
         create_version(deliverable, user, url=url, comment=comment)
 
+    notify_submitted(deliverable, user)
     return deliverable
 
 

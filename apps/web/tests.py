@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.evaluations.models import Evaluation
+from apps.evaluations.services import evaluate_deliverable
 from apps.projects.models import Deliverable, Milestone, Project, ProjectMembership
 from apps.projects.services import submit_deliverable
 
@@ -72,6 +73,13 @@ class WebTests(TestCase):
         self.client.force_login(self.outsider)
         self.assertEqual(self.client.get(reverse("web:project", args=[self.project.pk])).status_code, 404)
         self.assertEqual(self.client.get(reverse("web:deliverable", args=[self.pending.pk])).status_code, 404)
+
+    def test_nota_promedio_cero_se_muestra(self):
+        # Una nota de 0 es válida: no debe confundirse con «sin nota» (—)
+        evaluate_deliverable(self.submitted, self.prof, "rejected", 0)
+        self.client.force_login(self.ana)
+        response = self.client.get(reverse("web:project", args=[self.project.pk]))
+        self.assertContains(response, "<strong>0,0</strong><span>Nota promedio</span>", html=False)
 
     def test_estudiante_entrega_desde_la_web(self):
         self.client.force_login(self.ana)

@@ -1,0 +1,14 @@
+{% extends "web/base.html" %}
+{% block title %}Mi perfil{% endblock %}
+{% block content %}
+<article style="max-width: 560px;">
+  <hgroup>
+    <h2>Mi perfil</h2>
+    <p>{{ user.username }} · {{ user.email }} · {{ user.get_global_role_display }}</p>
+  </hgroup>
+  <form method="post">{% csrf_token %}
+    {{ form.as_div }}
+    <button type="submit">Guardar</button>
+  </form>
+</article>
+{% endblock %}

@@ -12,7 +12,7 @@
   <article class="kpi"><strong>{{ d.total }}</strong><span>Entregables</span></article>
   <article class="kpi"><strong>{{ d.approved }}</strong><span>Aprobados</span></article>
   <article class="kpi"><strong>{% if d.on_time_rate is not None %}{{ d.on_time_rate }}%{% else %}—{% endif %}</strong><span>Entregados a tiempo</span></article>
-  <article class="kpi"><strong>{{ d.average_score|default:"—" }}</strong><span>Nota promedio</span></article>
+  <article class="kpi"><strong>{{ d.average_score|default_if_none:"—" }}</strong><span>Nota promedio</span></article>
   <article class="kpi"><strong>{{ d.overdue }}</strong><span>Vencidos sin entregar</span></article>
   <article class="kpi"><strong>{{ c.last_30_days }}</strong><span>Commits (30 días)</span></article>
 </section>
@@ -39,7 +39,7 @@
         <td>{% if m.late %}<span class="overdue">{{ m.late }}</span>{% else %}0{% endif %}</td>
         <td>{% if m.on_time_rate is not None %}{{ m.on_time_rate }}%{% else %}—{% endif %}</td>
         <td>{{ m.approved }}</td>
-        <td>{{ m.average_score|default:"—" }}</td>
+        <td>{{ m.average_score|default_if_none:"—" }}</td>
         <td>{{ m.versions }}</td>
         <td>{{ m.commits }}</td>
       </tr>
@@ -75,9 +75,16 @@
   {% endfor %}
 </section>
 
-{% if can_review %}
-<p><a href="{% url 'project_audit' project.pk %}">Ver la auditoría del proyecto</a> · <a href="{% url 'project_metrics' project.pk %}">Métricas en JSON</a></p>
-{% endif %}
+<section>
+  <h3>Reportes</h3>
+  <p>
+    <a href="{% url 'reports:project' project.pk %}">Reporte imprimible (PDF)</a> ·
+    <a href="{% url 'reports:deliverables_csv' project.pk %}">Entregables (CSV)</a> ·
+    <a href="{% url 'reports:members_csv' project.pk %}">Integrantes (CSV)</a>
+    {% if can_review %} · <a href="{% url 'reports:audit_csv' project.pk %}">Auditoría (CSV)</a>
+    · <a href="{% url 'project_audit' project.pk %}">Auditoría en la API</a>{% endif %}
+  </p>
+</section>
 {% endblock %}
 
 {% block scripts %}
