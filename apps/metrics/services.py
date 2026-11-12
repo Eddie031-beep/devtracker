@@ -23,7 +23,7 @@ def _average(values):
     return round(sum(values) / len(values), 1) if values else None
 
 
-def _latest_scores(deliverable_ids):
+def latest_scores(deliverable_ids):
     """Nota vigente de cada entregable: la de su evaluación más reciente."""
     scores = {}
     for deliverable_id, score in (
@@ -50,7 +50,7 @@ def project_metrics(project):
         .prefetch_related("assignees")
     )
     ids = [d.pk for d in deliverables]
-    scores = _latest_scores(ids)
+    scores = latest_scores(ids)
 
     delivered = [d for d in deliverables if d.submitted_at]
     late = [d for d in delivered if d.is_late]

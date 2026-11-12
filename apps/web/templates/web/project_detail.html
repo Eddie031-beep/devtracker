@@ -75,9 +75,16 @@
   {% endfor %}
 </section>
 
-{% if can_review %}
-<p><a href="{% url 'project_audit' project.pk %}">Ver la auditoría del proyecto</a> · <a href="{% url 'project_metrics' project.pk %}">Métricas en JSON</a></p>
-{% endif %}
+<section>
+  <h3>Reportes</h3>
+  <p>
+    <a href="{% url 'reports:project' project.pk %}">Reporte imprimible (PDF)</a> ·
+    <a href="{% url 'reports:deliverables_csv' project.pk %}">Entregables (CSV)</a> ·
+    <a href="{% url 'reports:members_csv' project.pk %}">Integrantes (CSV)</a>
+    {% if can_review %} · <a href="{% url 'reports:audit_csv' project.pk %}">Auditoría (CSV)</a>
+    · <a href="{% url 'project_audit' project.pk %}">Auditoría en la API</a>{% endif %}
+  </p>
+</section>
 {% endblock %}
 
 {% block scripts %}

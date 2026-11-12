@@ -1,0 +1,60 @@
+{% extends "web/base.html" %}
+{% block title %}Reporte · {{ project.name }}{% endblock %}
+{% block content %}
+<div class="no-print">
+  <p><a href="{% url 'web:project' project.pk %}">← {{ project.name }}</a></p>
+  <button type="button" onclick="window.print()">Imprimir / guardar como PDF</button>
+</div>
+
+<hgroup>
+  <h2>Reporte del proyecto: {{ project.name }}</h2>
+  <p>Generado el {{ generated_at|date:"d/m/Y H:i" }} por {{ user.get_full_name|default:user.username }}{% if project.github_repo %} · github.com/{{ project.github_repo }}{% endif %}</p>
+</hgroup>
+
+{% with d=metrics.deliverables c=metrics.commits %}
+<h3>Resumen</h3>
+<table>
+  <tbody>
+    <tr><th>Entregables</th><td>{{ d.total }}</td><th>Aprobados</th><td>{{ d.approved }}</td></tr>
+    <tr><th>Entregados</th><td>{{ d.delivered }}</td><th>Entregados tarde</th><td>{{ d.late }}</td></tr>
+    <tr><th>A tiempo</th><td>{% if d.on_time_rate is not None %}{{ d.on_time_rate }}%{% else %}—{% endif %}</td><th>Nota promedio</th><td>{{ d.average_score|default_if_none:"—" }}</td></tr>
+    <tr><th>Vencidos sin entregar</th><td>{{ d.overdue }}</td><th>Commits (total / 30 días)</th><td>{{ c.total }} / {{ c.last_30_days }}</td></tr>
+  </tbody>
+</table>
+{% endwith %}
+
+<h3>Desempeño por integrante</h3>
+<table>
+  <thead><tr><th>Integrante</th><th>Rol</th><th>Asignados</th><th>Entregados</th><th>Tarde</th><th>A tiempo</th><th>Aprobados</th><th>Nota prom.</th><th>Versiones</th><th>Commits</th></tr></thead>
+  <tbody>
+  {% for m in metrics.members %}
+    <tr>
+      <td>{{ m.name }}</td><td>{{ m.role_display }}</td><td>{{ m.assigned }}</td><td>{{ m.delivered }}</td><td>{{ m.late }}</td>
+      <td>{% if m.on_time_rate is not None %}{{ m.on_time_rate }}%{% else %}—{% endif %}</td>
+      <td>{{ m.approved }}</td><td>{{ m.average_score|default_if_none:"—" }}</td><td>{{ m.versions }}</td><td>{{ m.commits }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Entregables</h3>
+<table>
+  <thead><tr><th>Hito</th><th>Entregable</th><th>Asignados</th><th>Estado</th><th>Vence</th><th>Entregado</th><th>Versiones</th><th>Nota</th></tr></thead>
+  <tbody>
+  {% for d in deliverables %}
+    <tr>
+      <td>{{ d.milestone.title }}</td>
+      <td>{{ d.title }}</td>
+      <td>{{ d.assignee_names|default:"—" }}</td>
+      <td>{{ d.get_status_display }}{% if d.is_late %} (tarde){% endif %}</td>
+      <td>{{ d.due_at|date:"d/m/Y" }}</td>
+      <td>{{ d.submitted_at|date:"d/m/Y"|default:"—" }}</td>
+      <td>{{ d.version_count }}</td>
+      <td>{{ d.score|default_if_none:"—" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8">Sin entregables.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

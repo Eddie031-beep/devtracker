@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "apps.metrics",
     "apps.web",
     "apps.notifications",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
