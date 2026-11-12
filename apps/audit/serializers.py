@@ -23,8 +23,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_actor_name(self, obj):
+    def get_actor_name(self, obj) -> str:
         return str(obj.actor) if obj.actor else "Sistema"
 
-    def get_action_display(self, obj):
+    def get_action_display(self, obj) -> str:
         return Action(obj.action).label if obj.action in Action.values else obj.action

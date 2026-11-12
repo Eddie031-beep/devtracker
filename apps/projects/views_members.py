@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -43,11 +44,13 @@ class ProjectMembersView(APIView):
         # Proyecto ajeno → 404
         return get_object_or_404(filter_projects_for_user(Project.objects.all(), self.request.user), pk=pk)
 
+    @extend_schema(responses=MembershipSerializer(many=True))
     def get(self, request, pk):
         project = self.get_project(pk)
         memberships = project.memberships.select_related("user").order_by("created_at")
         return Response(MembershipSerializer(memberships, many=True).data)
 
+    @extend_schema(request=AddMemberSerializer, responses={201: MembershipSerializer})
     def post(self, request, pk):
         project = self.get_project(pk)
         data = AddMemberSerializer(data=request.data)
@@ -68,6 +71,7 @@ class ProjectMemberDetailView(APIView):
         project = get_object_or_404(filter_projects_for_user(Project.objects.all(), self.request.user), pk=pk)
         return get_object_or_404(ProjectMembership, pk=membership_id, project=project)
 
+    @extend_schema(request=UpdateMemberSerializer, responses=MembershipSerializer)
     def patch(self, request, pk, membership_id):
         membership = self.get_membership(pk, membership_id)
         data = UpdateMemberSerializer(data=request.data)
@@ -80,6 +84,7 @@ class ProjectMemberDetailView(APIView):
             )
         return Response(MembershipSerializer(membership).data)
 
+    @extend_schema(responses={204: None})
     def delete(self, request, pk, membership_id):
         membership = self.get_membership(pk, membership_id)
         run_service(remove_member, membership, request.user)
@@ -91,6 +96,7 @@ class DeliverableAssigneesView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=AssigneesSerializer, responses=DeliverableSerializer)
     def put(self, request, pk):
         queryset = filter_deliverables_for_user(Deliverable.objects.all(), request.user)
         deliverable = get_object_or_404(queryset, pk=pk)

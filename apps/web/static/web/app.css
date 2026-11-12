@@ -1,0 +1,35 @@
+/* DevTracker: ajustes sobre Pico CSS */
+:root { --pico-font-size: 95%; }
+.brand { font-weight: 700; letter-spacing: -0.01em; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.kpi { margin: 0; padding: 1rem 1.2rem; }
+.kpi strong { display: block; font-size: 1.8rem; line-height: 1.1; }
+.kpi span { color: var(--pico-muted-color); font-size: 0.85rem; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.charts article { margin: 0; }
+.chart-box { position: relative; height: 240px; }
+.badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; background: #e5e7eb; color: #1f2937; }
+.status-pending { background: #e5e7eb; color: #374151; }
+.status-submitted { background: #dbeafe; color: #1e40af; }
+.status-late { background: #fee2e2; color: #991b1b; }
+.status-in_review { background: #fef3c7; color: #92400e; }
+.status-approved { background: #dcfce7; color: #166534; }
+.status-rejected { background: #fce7f3; color: #9d174d; }
+.overdue { color: #b91c1c; font-weight: 600; }
+.muted { color: var(--pico-muted-color); }
+.messages { list-style: none; padding: 0; }
+.messages li { padding: 0.6rem 1rem; border-radius: var(--pico-border-radius); margin-bottom: 0.5rem; }
+.messages .success { background: #dcfce7; color: #166534; }
+.messages .error { background: #fee2e2; color: #991b1b; }
+.table-wrap { overflow-x: auto; }
+nav form { margin: 0; }
+nav button.link { margin: 0; padding: 0; border: 0; background: none; color: var(--pico-primary); font-size: inherit; line-height: inherit; vertical-align: baseline; }
+footer { margin-top: 2rem; font-size: 0.8rem; }
+.badge.count { background: #ef4444; color: #fff; }
+.unread { font-weight: 600; }
+.unread::before { content: "● "; color: #ef4444; }
+@media print {
+  header, footer, .no-print, .messages { display: none !important; }
+  body { font-size: 11pt; }
+  table { font-size: 9.5pt; }
+}

@@ -26,6 +26,8 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+- Interfaz web (dashboard): http://localhost:8000/
+- Documentación de la API (Swagger): http://localhost:8000/api/docs/
 - Admin: http://localhost:8000/admin/
 - Health check: http://localhost:8000/api/health/
 - JWT: `POST /api/auth/token/` y `POST /api/auth/token/refresh/`
@@ -183,6 +185,104 @@ python manage.py sync_github_commits <id_proyecto>   # uno o varios ids
 python manage.py sync_github_commits --all           # todos los proyectos con repo vinculado
 ```
 
+### Evaluación de entregables
+
+| Método | Ruta | Quién |
+|---|---|---|
+| POST | `/api/deliverables/<id>/evaluate/` | Evaluador o líder del proyecto, o admin (integrante → 403) |
+| GET | `/api/deliverables/<id>/evaluations/` | Integrante del proyecto (la más reciente primero) |
+
+```json
+{"decision": "approved", "score": 92, "feedback": "Buen trabajo"}
+```
+
+- `decision`: `approved` o `rejected`; `score`: de 0 a 100; `feedback` es opcional.
+- Se puede evaluar lo entregado (a tiempo o tarde) o lo que está en revisión. Si recién se entregó, pasa
+  primero por «En revisión», así cada paso queda en la auditoría (`deliverable.status_changed` y
+  `deliverable.evaluated`).
+- Un rechazo permite reentregar (nueva versión) y volver a evaluar. Las evaluaciones no se editan ni se
+  borran; la nota vigente de un entregable es la de su evaluación más reciente.
+
+### Métricas
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET | `/api/projects/<id>/metrics/` | Integrante del proyecto o admin (ajeno → 404) |
+
+Devuelve, para el proyecto:
+
+- **Entregables:** total, por estado, entregados, tarde, % a tiempo, aprobados, nota promedio y vencidos sin entregar.
+- **Commits:** total, vinculados a entregables, sin integrante reconocido, últimos 30 días y por semana (8 semanas).
+- **Por integrante:** asignados, entregados, tarde, % a tiempo, aprobados, nota promedio, versiones y commits.
+
+### Interfaz web (dashboard por rol)
+
+En `/` (login en `/login/` con el mismo usuario de la API):
+
+| Rol | Ve en el inicio |
+|---|---|
+| Estudiante | Sus entregas pendientes (con las vencidas resaltadas) y sus proyectos |
+| Evaluador o líder | Además, los entregables que esperan revisión |
+| Administrador | Además, un resumen de toda la plataforma (usuarios y entregables por estado) |
+
+- **Proyecto** (`/proyectos/<id>/`): indicadores, gráficos (entregables por estado, commits por semana y
+  por integrante), tabla de métricas por integrante y entregables por hito.
+- **Entregable** (`/entregables/<id>/`): estado, versiones, evaluaciones y commits vinculados. El
+  asignado puede entregar y el evaluador o el líder puede evaluar desde la misma página.
+
+Los permisos son los mismos que en la API: proyecto o entregable ajeno → 404.
+
+**Datos de ejemplo para la demo:** `python manage.py cargar_demo --proyecto 1` crea 3 hitos y 15
+entregables repartidos entre los integrantes, con entregas a tiempo y tarde, rechazos, reentregas y
+evaluaciones. Usa el flujo real, así que también llena la auditoría. Si ya se cargó, no hace nada.
+
+### Documentación de la API
+
+- Swagger UI: `/api/docs/` · Esquema OpenAPI: `/api/schema/` (públicos: solo describen los endpoints).
+- Para probar endpoints protegidos: `POST /api/auth/token/`, copia el `access` y pégalo en **Authorize**.
+
+### Notificaciones
+
+Avisos dentro de la app (campana **Avisos** del menú, `/notificaciones/`) y por correo con `EMAIL_BACKEND`:
+
+| Cuándo | A quién |
+|---|---|
+| Se entrega un entregable (a tiempo o tarde) | Líder y evaluadores del proyecto |
+| Se evalúa (aprobado o rechazado, con nota) | Los asignados |
+| Te asignan un entregable | Solo los recién asignados |
+| Un entregable pendiente vence pronto | Los asignados (`python manage.py enviar_recordatorios --horas 48`) |
+
+Nadie recibe aviso de lo que hizo él mismo. Los recordatorios no se repiten el mismo día.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET | `/api/notifications/?unread=1` | Autenticado: solo sus propios avisos |
+| POST | `/api/notifications/<id>/read/` | El destinatario (ajeno → 404) |
+| POST | `/api/notifications/read-all/` | Autenticado |
+
+Por defecto el correo se imprime en la consola (o en los logs de Railway). Para enviarlo de verdad, configura
+`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend` y las variables `EMAIL_HOST`, etc. de Django;
+`NOTIFICATIONS_SEND_EMAIL=False` lo apaga.
+
+### Reportes
+
+Desde la página del proyecto, sección **Reportes** (mismos permisos que el proyecto):
+
+- **Reporte imprimible** (`/proyectos/<id>/reporte/`): resumen, desempeño por integrante y entregables;
+  el botón *Imprimir / guardar como PDF* lo exporta.
+- **CSV** (se abren en Excel): `entregables.csv`, `integrantes.csv` y `auditoria.csv` (este último solo
+  para líder, evaluador del proyecto o admin; integrante → 403).
+
+### Iniciar sesión con GitHub (OAuth2) y perfil
+
+- En **Mi perfil** (`/perfil/`, clic en tu nombre en el menú) cada usuario registra su usuario de GitHub;
+  al guardarlo se le vinculan sus commits anteriores.
+- **Entrar con GitHub**: GitHub confirma quién eres y DevTracker te da acceso solo si ese usuario de GitHub
+  ya está registrado en un perfil. No crea cuentas nuevas.
+- Para activarlo: GitHub → *Settings → Developer settings → OAuth Apps → New OAuth App* con
+  *Authorization callback URL* `https://<dominio>/login/github/callback/`, y en el servidor las variables
+  `GITHUB_OAUTH_CLIENT_ID` y `GITHUB_OAUTH_CLIENT_SECRET`. Sin ellas el botón no aparece.
+
 Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o transición inválidos → **400**.
 El borrado es lógico: nada se pierde de la base de datos.
 
@@ -215,6 +315,7 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 | `SECRET_KEY` | una clave larga y aleatoria (no la de `.env.example`) |
 | `DEBUG` | `False` |
 | `GITHUB_TOKEN` | opcional: token de GitHub de solo lectura para sincronizar repos privados |
+| `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | opcional: activan *Entrar con GitHub* |
 
 > ⚠️ Railway sugiere variables leídas de `.env.example` (`localhost`, `DEBUG=True`): no las agregues.
 > Después de cambiar variables hay que darle a **Deploy** para que se apliquen.
@@ -224,6 +325,9 @@ si `/api/health/` no responde 200, mantiene la versión anterior.
 > El pre-deploy reintenta el `migrate` hasta 6 veces por eso mismo.
 
 **Crear el admin:** servicio `devtracker` → *Console* → `python manage.py createsuperuser`.
+
+> ℹ️ Si la *Console* responde `python: command not found`, usa la ruta completa del entorno:
+> `/app/.venv/bin/python manage.py ...`
 
 **Sincronizar commits:** servicio `devtracker` → *Console* → `python manage.py sync_github_commits --all`.
 Staging no tiene worker de Celery (el plan gratis no alcanza para otro servicio), así que el endpoint
@@ -240,6 +344,11 @@ apps/accounts/     User personalizado con rol global (student / evaluator / admi
 apps/projects/     Project, ProjectMembership (rol por proyecto), Milestone, Deliverable
 apps/audit/        AuditLog inmutable, `log_action(...)` y endpoint de consulta
 apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregables y sincronización (Celery)
+apps/evaluations/  Evaluation inmutable (decisión, nota y retroalimentación) y endpoints de evaluación
+apps/metrics/      Métricas del proyecto y por integrante
+apps/web/          Interfaz web: login (también con GitHub), dashboard por rol, proyecto, entregable y perfil
+apps/notifications/ Avisos en la app y por correo, recordatorios de vencimiento
+apps/reports/      Reporte imprimible y exportación CSV
 ```
 
 ## Plan por etapas
@@ -248,8 +357,8 @@ apps/integrations/ Commit, webhook de GitHub, vínculo con integrantes/entregabl
 |---|---|---|
 | **1. Seguridad y estructura base** | Auth + RBAC + recuperación de contraseña, permisos por proyecto, CRUD proyectos/hitos/entregables, asignación de integrantes, flujo de estados | ✅  Completa |
 | **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | ✅ Completa |
-| 3. Métricas y evaluación | Métricas por integrante, dashboard por rol, evaluación | ⏳ |
-| 4. Should / Could Have | Notificaciones, reportes, OAuth2, docs de API, extras | ⏳ |
+| **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
+| **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
 
 ### Etapa 1: quién hace qué
 

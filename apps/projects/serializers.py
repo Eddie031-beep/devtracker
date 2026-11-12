@@ -32,7 +32,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "owner", "created_at", "updated_at")
 
-    def get_has_github_webhook_secret(self, obj):
+    def get_has_github_webhook_secret(self, obj) -> bool:
         return bool(obj.github_webhook_secret)
 
     def validate(self, attrs):

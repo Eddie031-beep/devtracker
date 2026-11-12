@@ -54,12 +54,19 @@ INSTALLED_APPS = [
     # Terceros
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # Swagger UI servido desde nuestros estáticos, sin CDN
     # Apps del proyecto
     "apps.core",
     "apps.accounts",
     "apps.projects",
     "apps.audit",
     "apps.integrations",
+    "apps.evaluations",
+    "apps.metrics",
+    "apps.web",
+    "apps.notifications",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -86,6 +93,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.notifications.context_processors.unread_notifications",
             ],
         },
     },
@@ -163,12 +171,33 @@ REST_FRAMEWORK = {
     ],
     # Todo endpoint exige autenticación salvo que se indique lo contrario (regla RBAC en backend)
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # Documentación OpenAPI generada a partir de las vistas (drf-spectacular)
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "DevTracker API",
+    "DESCRIPTION": "API de gestión y auditoría de proyectos de software (Proyecto Final, Desarrollo de Software VIII, UTP).",
+    "VERSION": "0.3.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+# Interfaz web (Etapa 3): login con sesión de Django
+LOGIN_URL = "web:login"
+LOGIN_REDIRECT_URL = "web:dashboard"
+LOGOUT_REDIRECT_URL = "web:login"
+
+# Notificaciones (Etapa 4): además del aviso en la app, se manda un correo con EMAIL_BACKEND.
+# SITE_URL arma el enlace del correo; en Railway se toma del dominio público.
+NOTIFICATIONS_SEND_EMAIL = env.bool("NOTIFICATIONS_SEND_EMAIL", default=True)
+SITE_URL = env("SITE_URL", default=f"https://{RAILWAY_PUBLIC_DOMAIN}" if RAILWAY_PUBLIC_DOMAIN else "http://localhost:8000")
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")
@@ -179,6 +208,11 @@ CELERY_TIMEZONE = TIME_ZONE
 # Token de GitHub para la sincronización de commits (#21). Opcional para repos públicos,
 # obligatorio para privados. Basta un token fine-grained con permiso de solo lectura a «Contents».
 GITHUB_TOKEN = env("GITHUB_TOKEN", default="")
+
+# Inicio de sesión con GitHub (OAuth2, Etapa 4). Opcional: sin estas dos variables el botón no aparece.
+# Se crean en GitHub → Settings → Developer settings → OAuth Apps; callback: <dominio>/login/github/callback/
+GITHUB_OAUTH_CLIENT_ID = env("GITHUB_OAUTH_CLIENT_ID", default="")
+GITHUB_OAUTH_CLIENT_SECRET = env("GITHUB_OAUTH_CLIENT_SECRET", default="")
 
 # Solo en Railway (no en CI ni local): su proxy termina el HTTPS y nos pasa X-Forwarded-Proto
 if RAILWAY_PUBLIC_DOMAIN:

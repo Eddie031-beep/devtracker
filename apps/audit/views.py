@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
@@ -49,6 +50,14 @@ class ProjectAuditView(APIView):
             raise serializers.ValidationError({name: "Usa el formato AAAA-MM-DD."})
         return parsed
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("action", str, description="Filtra por acción, p. ej. deliverable.submitted"),
+            OpenApiParameter("date_from", str, description="Desde (AAAA-MM-DD)"),
+            OpenApiParameter("date_to", str, description="Hasta (AAAA-MM-DD)"),
+        ],
+        responses=AuditLogSerializer(many=True),
+    )
     def get(self, request, pk):
         project = self.get_project(pk)
         if not can_review(request.user, project):

@@ -4,6 +4,7 @@ from django.db import transaction
 
 from apps.audit.models import Action
 from apps.audit.services import log_action
+from apps.notifications.services import notify_assigned
 
 from .models import Deliverable, ProjectMembership
 
@@ -165,6 +166,7 @@ def set_deliverable_assignees(deliverable, actor, users):
     deliverable.assignees.set(user_ids)
     new_ids = sorted(user_ids)
     if previous_ids != new_ids:
+        notify_assigned(deliverable, [u for u in users if u.pk not in previous_ids], actor)
         log_action(
             actor,
             Action.DELIVERABLE_ASSIGNEES_CHANGED,

@@ -1,0 +1,101 @@
+{% extends "web/base.html" %}
+{% load static %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>Hola, {{ user.first_name|default:user.username }}</h2>
+  <p>Panel de {{ user.get_global_role_display|lower }}</p>
+</hgroup>
+
+<section class="kpis">
+  <article class="kpi"><strong>{{ projects|length }}</strong><span>Proyectos</span></article>
+  <article class="kpi"><strong>{{ pending|length }}</strong><span>Entregas pendientes</span></article>
+  {% if is_reviewer %}<article class="kpi"><strong>{{ to_review|length }}</strong><span>Por revisar</span></article>{% endif %}
+  {% if overview %}
+  <article class="kpi"><strong>{{ overview.users }}</strong><span>Usuarios activos</span></article>
+  <article class="kpi"><strong>{{ overview.deliverables }}</strong><span>Entregables en total</span></article>
+  {% endif %}
+</section>
+
+{% if overview %}
+<section>
+  <h3>Resumen general</h3>
+  <article><div class="chart-box"><canvas id="overview-chart"></canvas></div></article>
+  {{ overview.chart|json_script:"overview-data" }}
+</section>
+{% endif %}
+
+{% if is_reviewer %}
+<section>
+  <h3>Por revisar</h3>
+  {% if to_review %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Entregable</th><th>Proyecto</th><th>Estado</th><th>Entregado</th></tr></thead>
+    <tbody>
+    {% for d in to_review %}
+      <tr>
+        <td><a href="{% url 'web:deliverable' d.pk %}">{{ d.title }}</a></td>
+        <td>{{ d.milestone.project.name }}</td>
+        <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span></td>
+        <td>{{ d.submitted_at|date:"d/m/Y H:i"|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">No hay entregas esperando revisión.</p>{% endif %}
+</section>
+{% endif %}
+
+<section>
+  <h3>Mis entregas pendientes</h3>
+  {% if pending %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Entregable</th><th>Proyecto</th><th>Estado</th><th>Vence</th></tr></thead>
+    <tbody>
+    {% for d in pending %}
+      <tr>
+        <td><a href="{% url 'web:deliverable' d.pk %}">{{ d.title }}</a></td>
+        <td>{{ d.milestone.project.name }}</td>
+        <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span></td>
+        <td class="{% if d.due_at < now %}overdue{% endif %}">{{ d.due_at|date:"d/m/Y H:i" }}{% if d.due_at < now %} · vencido{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">No tienes entregas pendientes.</p>{% endif %}
+</section>
+
+<section>
+  <h3>Mis proyectos</h3>
+  {% if projects %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Proyecto</th><th>Mi rol</th><th>Entregables</th><th>Aprobados</th><th>Repositorio</th></tr></thead>
+    <tbody>
+    {% for p in projects %}
+      <tr>
+        <td><a href="{% url 'web:project' p.pk %}">{{ p.name }}</a></td>
+        <td>{{ p.my_role }}</td>
+        <td>{{ p.total }}</td>
+        <td>{{ p.approved }}</td>
+        <td>{% if p.github_repo %}<a href="https://github.com/{{ p.github_repo }}" target="_blank" rel="noopener">{{ p.github_repo }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="muted">Todavía no participas en ningún proyecto.</p>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if overview %}
+<script src="{% static 'web/vendor/chart-4.4.4.umd.min.js' %}"></script>
+<script>
+  const data = JSON.parse(document.getElementById("overview-data").textContent);
+  new Chart(document.getElementById("overview-chart"), {
+    type: "bar",
+    data: { labels: data.labels, datasets: [{ label: "Entregables por estado", data: data.values, backgroundColor: "#4f6bed" }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+  });
+</script>
+{% endif %}
+{% endblock %}
