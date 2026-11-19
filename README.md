@@ -447,6 +447,33 @@ apps/notifications/ Avisos en la app y por correo, recordatorios de vencimiento
 apps/reports/      Reporte imprimible y exportación CSV
 ```
 
+## Equipo
+
+| Integrante | GitHub | Rol en el proyecto | Módulos a su cargo (requisitos del MoSCoW) |
+|---|---|---|---|
+| Eddie Man | [Eddie031-beep](https://github.com/Eddie031-beep) | Líder | Estructura base, despliegue en Railway, flujo de estados, dashboard por rol (#10), evaluación (#11), reportes (#13), documentación de la API (#15) y Could Have (#16–#18). Revisa y fusiona los PR. |
+| Carlos Miranda | [Litdemonick](https://github.com/Litdemonick) | Integrante | Autenticación, roles globales y recuperación de contraseña (#1), login con GitHub (#14), webhook de GitHub y su firma (#8) |
+| Harold Morales | [AtunConMayonesa06](https://github.com/AtunConMayonesa06) | Integrante | Permisos por proyecto (#2), auditoría inmutable (#7), notificaciones (#12) |
+| Brayan Quintero | [Brashan09](https://github.com/Brashan09) | Integrante | CRUD de proyectos, hitos y entregables (#3), historial de versiones (#6) |
+| Eliecias Cubilla | [ElieCubi](https://github.com/ElieCubi) | Integrante | Integrantes y responsabilidades (#4), sincronización con GitHub, pull requests e historial (#8), métricas por integrante (#9) |
+
+## Cómo agregamos algo nuevo
+
+Cada cambio sigue el mismo camino y queda registrado en DevTracker:
+
+1. **El líder lo pide.** En el proyecto: *Nuevo hito* (la etapa, con fecha de cierre) y *Nuevo entregable* dentro
+   del hito, asignado a quien lo hará. El entregable recibe un número, por ejemplo `#D16`.
+2. **El integrante trabaja en su rama**, desde su propia cuenta de GitHub: `feature/D16-<tema>` a partir de
+   `develop`, con `#D16` en los mensajes de commit.
+3. **Abre un PR hacia `develop`** con `#D16` en el título. DevTracker lo recibe por el webhook y, si quien lo
+   abre es la persona asignada, marca el entregable como *Entregado* con el enlace del PR.
+4. **El evaluador revisa** en DevTracker: *Aprobar* (completo) o *Rechazar* con retroalimentación. Si lo rechaza,
+   el integrante corrige en el mismo PR y cada push crea una versión nueva.
+5. **Con el CI en verde, el líder fusiona** el PR. Railway despliega `develop` solo.
+6. **Para publicar una versión**, PR de `develop` a `main` y una release con su etiqueta (`v1.0.0`).
+
+Nadie sube cambios con la cuenta de otro: así las métricas y la auditoría reflejan el trabajo de cada uno.
+
 ## Plan por etapas
 
 | Etapa | Contenido | Estado |
@@ -455,6 +482,7 @@ apps/reports/      Reporte imprimible y exportación CSV
 | **2. Trazabilidad y entregables** | Historial de versiones, auditoría inmutable, integración GitHub, despliegue en Railway | ✅ Completa |
 | **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
 | **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
+| **Cierre (v1.0.0)** | Interfaz final, pull requests e historial de ramas, administración desde la web, recuperar contraseña en la web, Excel, modo oscuro, calendario iCal, Gemini opcional | ✅ Completa |
 
 ### Etapa 1: quién hace qué
 
@@ -480,6 +508,17 @@ apps/reports/      Reporte imprimible y exportación CSV
 Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
 #19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):
 avisen al grupo antes de subir migraciones.
+
+### Etapas 3, 4 y cierre
+
+| Tarea | Responsable | PR |
+|---|---|---|
+| Sincronización de commits sin worker (comando) | Eddie Man | #33 |
+| Etapa 3: métricas, evaluación, dashboard por rol y docs de la API | Eddie Man | #35 |
+| Etapa 4: notificaciones, reportes y login con GitHub | Eddie Man | #36 |
+| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | Eddie Man | #38 |
+| Arreglos de la prueba integral | Eddie Man | #40 |
+| Versiones publicadas en `main` | Eddie Man | #37, #39, #41 |
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
