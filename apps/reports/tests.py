@@ -17,8 +17,8 @@ Role = ProjectMembership.ProjectRole
 
 def read_csv(response):
     text = response.content.decode("utf-8")
-    assert text.startswith("﻿")
-    return list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    assert text.startswith("\ufeff")
+    return list(csv.reader(io.StringIO(text.lstrip("\ufeff"))))
 
 
 class ReportTests(TestCase):
@@ -56,6 +56,18 @@ class ReportTests(TestCase):
         ana = next(r for r in rows if r[1] == "ana")
         self.assertEqual(ana[3:6], ["1", "1", "0"])
         self.assertEqual(ana[8], "88.0")
+
+    def test_celdas_que_parecen_formula_se_exportan_como_texto(self):
+        self.ana.first_name, self.ana.last_name = "=HYPERLINK(\"http://x\")", ""
+        self.ana.save()
+        self.deliverable.title = "+cmd"
+        self.deliverable.save()
+        self.client.force_login(self.ana)
+        members = read_csv(self.client.get(self.url("members_csv")))
+        self.assertIn("'=HYPERLINK(\"http://x\")", [r[0] for r in members])
+        deliverables = read_csv(self.client.get(self.url("deliverables_csv")))
+        self.assertEqual(deliverables[1][1], "'+cmd")
+        self.assertEqual(deliverables[1][-1], "88")  # los números no se tocan
 
     def test_auditoria_solo_para_quien_revisa(self):
         self.client.force_login(self.ana)

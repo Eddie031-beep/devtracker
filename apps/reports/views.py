@@ -40,14 +40,25 @@ def _local(moment):
     return timezone.localtime(moment).strftime("%d/%m/%Y %H:%M") if moment else ""
 
 
+# Una celda que empieza así, Excel la interpreta como fórmula («inyección CSV»)
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _safe(value):
+    """Texto escrito por usuarios (nombres, títulos): si parece fórmula, se exporta como texto con «'»."""
+    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
 def _csv_response(project, name, header, rows):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     filename = f"devtracker-{slugify(project.name)}-{name}-{timezone.localdate():%Y%m%d}.csv"
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    response.write("﻿")  # BOM: Excel abre bien las tildes
+    response.write("\ufeff")  # BOM: Excel abre bien las tildes
     writer = csv.writer(response)
     writer.writerow(header)
-    writer.writerows(rows)
+    writer.writerows([_safe(cell) for cell in row] for row in rows)
     return response
 
 
