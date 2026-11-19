@@ -49,7 +49,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS(
                     f"✓ {project} ({project.github_repo}): {result['created']} commits nuevos, "
-                    f"{result['linked']} vinculados"
+                    f"{result['linked']} vinculados, {result['pull_requests']} PR nuevos"
                 )
             )
 

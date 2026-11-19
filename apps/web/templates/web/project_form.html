@@ -1,0 +1,51 @@
+{% extends "web/base.html" %}
+{% block title %}{% if project %}Editar {{ project.name }}{% else %}Nuevo proyecto{% endif %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span>{% if project %}<a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><span>Editar</span>{% else %}<span>Nuevo proyecto</span>{% endif %}</nav>
+<div class="page-head"><div class="title"><h1>{% if project %}Editar proyecto{% else %}Nuevo proyecto{% endif %}</h1>{% if not project %}<p class="muted">Quedarás como líder: luego agregas a los integrantes.</p>{% endif %}</div></div>
+
+{% if new_secret %}
+<section class="card secret-box" role="status">
+  <header><h2>Secreto del webhook</h2><span class="badge status-late">Se muestra una sola vez</span></header>
+  <p class="small">En GitHub: repositorio → <strong>Settings → Webhooks</strong> → tu webhook (o <em>Add webhook</em>). Pega estos valores y guarda.</p>
+  <dl class="kv">
+    <dt>Payload URL</dt><dd class="mono">{{ webhook_url }}</dd>
+    <dt>Content type</dt><dd class="mono">application/json</dd>
+    <dt>Secret</dt><dd class="mono">{{ new_secret }}</dd>
+    <dt>Eventos</dt><dd>Let me select individual events → <strong>Pushes</strong> y <strong>Pull requests</strong></dd>
+  </dl>
+  <a href="{% url 'web:project' project.pk %}" class="btn">Listo, ya lo copié</a>
+</section>
+{% endif %}
+
+<section class="grid two">
+  <form method="post" class="card">{% csrf_token %}
+    {% for f in form %}
+      {% if f.name == "new_secret" %}{% if project %}
+      <label class="check">{{ f }} {{ f.label }}</label><p class="small muted" style="margin: 0 0 14px">{{ f.help_text }}{% if project.github_webhook_secret %} Ya hay uno guardado.{% else %} Todavía no hay ninguno.{% endif %}</p>
+      {% endif %}{% else %}
+      <div class="field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<p class="small overdue">{{ e }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endfor %}
+    <div class="actions"><button type="submit" class="btn">{% if project %}Guardar cambios{% else %}Crear proyecto{% endif %}</button><a href="{% if project %}{% url 'web:project' project.pk %}{% else %}{% url 'web:dashboard' %}{% endif %}" class="btn secondary">Cancelar</a></div>
+  </form>
+  {% if project %}
+  <div class="stack" style="gap: 24px">
+    <section class="card">
+      <header><h2>Webhook de GitHub</h2></header>
+      <dl class="kv">
+        <dt>Payload URL</dt><dd class="mono">{{ webhook_url }}</dd>
+        <dt>Secreto</dt><dd>{% if project.github_webhook_secret %}Configurado (oculto){% else %}<span class="overdue">Sin configurar</span>{% endif %}</dd>
+      </dl>
+    </section>
+    <section class="card danger-zone">
+      <header><h2>Eliminar proyecto</h2></header>
+      <p class="small muted">Deja de verse para todos, pero su historial, versiones y auditoría se conservan en la base de datos.</p>
+      <form method="post" action="{% url 'web:project_delete' project.pk %}" onsubmit="return confirm('¿Eliminar el proyecto «{{ project.name|escapejs }}»?')">{% csrf_token %}
+        <button type="submit" class="btn danger">Eliminar proyecto</button>
+      </form>
+    </section>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

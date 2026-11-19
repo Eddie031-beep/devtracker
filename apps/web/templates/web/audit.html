@@ -1,0 +1,57 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}Auditoría · {{ project.name }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta">
+  <a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span>
+  <a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><span>Auditoría</span>
+</nav>
+
+<div class="page-head">
+  <div class="title">
+    <h1>Auditoría · {{ project.name }}</h1>
+    <div class="notice">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+      <span>Registro inmutable: cada acción queda guardada y nadie puede editarla ni borrarla, ni siquiera un administrador.</span>
+    </div>
+  </div>
+  <div class="actions no-print"><a href="{% url 'reports:audit_csv' project.pk %}" class="btn secondary">Descargar CSV</a></div>
+</div>
+
+<form method="get" class="card no-print">
+  <div class="form-grid">
+    <div class="field">{{ form.action.label_tag }}{{ form.action }}</div>
+    <div class="field">{{ form.actor.label_tag }}{{ form.actor }}</div>
+    <div class="field">{{ form.date_from.label_tag }}{{ form.date_from }}</div>
+    <div class="field">{{ form.date_to.label_tag }}{{ form.date_to }}</div>
+  </div>
+  <div class="actions"><button type="submit" class="btn">Filtrar</button><a href="{% url 'web:project_audit' project.pk %}" class="btn secondary">Quitar filtros</a></div>
+</form>
+
+<section class="card flush">
+  {% if page.object_list %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Fecha y hora</th><th>Quién</th><th>Acción</th><th>Sobre</th><th>Cambio</th></tr></thead>
+    <tbody>
+    {% for log in page.object_list %}
+      <tr>
+        <td class="muted" style="white-space: nowrap">{{ log.created_at|date:"d M · H:i" }}</td>
+        <td><strong>{% if log.actor %}{{ log.actor.get_full_name|default:log.actor.username }}{% else %}Sistema{% endif %}</strong></td>
+        <td>{{ labels|get_item:log.action|default:log.action }}</td>
+        <td>{% if log.target_type == "deliverable" %}<a href="{% url 'web:deliverable' log.target_id %}" class="mono">#D{{ log.target_id }}</a>{% else %}{{ targets|get_item:log.target_type|default:log.target_type }}{% if log.target_id %} <span class="mono">#{{ log.target_id }}</span>{% endif %}{% endif %}</td>
+        <td class="mono" style="color: var(--ink-2)">{% for field, change in log.changes.items %}{{ field }}: {{ change.before|default_if_none:"—" }} → {{ change.after|default_if_none:"—" }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="empty">No hay registros con esos filtros.</p>{% endif %}
+</section>
+
+<div class="row" style="justify-content: space-between">
+  <span class="muted small">Mostrando {{ page.object_list|length }} de {{ page.paginator.count }} registros</span>
+  <div class="actions">
+    {% if page.has_previous %}<a class="btn secondary" href="?{{ query }}{% if query %}&amp;{% endif %}page={{ page.previous_page_number }}">Anterior</a>{% endif %}
+    {% if page.has_next %}<a class="btn secondary" href="?{{ query }}{% if query %}&amp;{% endif %}page={{ page.next_page_number }}">Siguiente</a>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from apps.projects.models import Project
 
-from .services import save_push_commits, verify_signature
+from .services import save_pull_request, save_push_commits, submit_from_pull_request, verify_signature
 
 
 class GitHubWebhookView(APIView):
@@ -35,7 +35,7 @@ class GitHubWebhookView(APIView):
         event = request.headers.get("X-GitHub-Event", "")
         if event == "ping":
             return Response({"detail": "pong"})
-        if event != "push":
+        if event not in ("push", "pull_request"):
             return Response({"detail": f"Evento «{event}» ignorado."})
 
         try:
@@ -46,9 +46,16 @@ class GitHubWebhookView(APIView):
         repo = (payload.get("repository") or {}).get("full_name", "")
         if project.github_repo and repo.lower() != project.github_repo.lower():
             return Response(
-                {"detail": f"El push es de «{repo}», pero el proyecto está vinculado a «{project.github_repo}»."},
+                {"detail": f"El evento es de «{repo}», pero el proyecto está vinculado a «{project.github_repo}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if event == "pull_request":
+            pull, created = save_pull_request(project, payload.get("pull_request") or {})
+            if pull is None:
+                return Response({"detail": "El evento no trae el pull request."}, status=status.HTTP_400_BAD_REQUEST)
+            submitted = submit_from_pull_request(pull, payload.get("action", ""))
+            return Response({"detail": "ok", "pull_request": pull.number, "created": created, "submission": submitted})
 
         created = save_push_commits(project, payload)
         return Response({"detail": "ok", "created": created})
