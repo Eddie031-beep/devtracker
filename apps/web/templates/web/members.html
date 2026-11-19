@@ -1,0 +1,43 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}Integrantes · {{ project.name }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span><a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><span>Integrantes</span></nav>
+<div class="page-head"><div class="title"><h1>Integrantes</h1><p class="muted">Rol dentro de este proyecto y qué le toca a cada uno. Todo cambio queda en la auditoría.</p></div></div>
+
+<section class="card flush">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Integrante</th><th>Rol</th><th>Responsabilidades</th><th></th></tr></thead>
+    <tbody>
+    {% for m, f in rows %}
+      <tr>
+        <td><span class="person"><span class="avatar sm">{{ m.user|initials }}</span><span class="stack" style="gap: 0"><strong>{{ m.user.get_full_name|default:m.user.username }}</strong><span class="small muted">{{ m.user.username }}{% if m.user.github_username %} · GitHub {{ m.user.github_username }}{% endif %}</span></span></span></td>
+        <td colspan="2">
+          <form method="post" action="{% url 'web:member_update' project.pk m.pk %}" class="inline-form" id="f{{ m.pk }}">{% csrf_token %}
+            {{ f.role }}{{ f.responsibilities }}
+            <button type="submit" class="btn secondary sm">Guardar</button>
+          </form>
+        </td>
+        <td>
+          {% if m.user != request.user %}
+          <form method="post" action="{% url 'web:member_remove' project.pk m.pk %}" onsubmit="return confirm('¿Quitar a {{ m.user.get_full_name|default:m.user.username|escapejs }} del proyecto?')">{% csrf_token %}
+            <button type="submit" class="btn danger sm">Quitar</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <header><h2>Agregar integrante</h2></header>
+  {% if add_form.fields.user.queryset.exists %}
+  <form method="post" class="filters">{% csrf_token %}
+    {% for fl in add_form %}<div class="field"><label for="{{ fl.id_for_label }}">{{ fl.label }}</label>{{ fl }}{% for e in fl.errors %}<p class="small overdue">{{ e }}</p>{% endfor %}</div>{% endfor %}
+    <button type="submit" class="btn">Agregar</button>
+  </form>
+  {% else %}<p class="muted small">Todos los usuarios activos ya están en el proyecto. Las cuentas nuevas las crea un administrador.</p>{% endif %}
+</section>
+{% endblock %}

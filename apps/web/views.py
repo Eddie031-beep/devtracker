@@ -1,25 +1,41 @@
+from urllib.error import HTTPError, URLError
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.audit.models import Action, AuditLog
+from apps.audit.services import diff, log_action, snapshot
 from apps.evaluations.services import EVALUABLE_STATES, evaluate_deliverable
+from apps.integrations.gemini import GeminiError, gemini_enabled, suggest_for_deliverable
+from apps.integrations.models import Commit
 from apps.integrations.services import link_user_commits
+from apps.integrations.tasks import sync_project_commits
 from apps.metrics.services import project_metrics
 from apps.notifications.models import Notification
-from apps.projects.models import Deliverable, Project, ProjectMembership
+from apps.projects.models import Deliverable, DeliverableVersion, Milestone, Project, ProjectMembership
 from apps.projects.permissions import filter_deliverables_for_user, filter_projects_for_user, is_global_admin
 from apps.projects.services import SUBMITTABLE_STATES, can_review, submit_deliverable
+from apps.projects.services_members import can_manage_members, set_deliverable_assignees
 
 from . import oauth
-from .forms import EvaluateForm, ProfileForm, SubmitForm
+from .forms import (
+    AuditFilterForm, DeliverableForm, EvaluateForm, HistoryFilterForm, MilestoneForm, ProfileForm, SubmitForm,
+)
+from .history import build_graph
+from .ical import feed_url
 
 User = get_user_model()
 Status = Deliverable.Status
@@ -27,6 +43,11 @@ Role = ProjectMembership.ProjectRole
 
 # Entregables vivos: ni ellos, ni su hito, ni su proyecto con borrado lógico
 LIVE = {"milestone__deleted_at__isnull": True, "milestone__project__deleted_at__isnull": True}
+# Nombre en español del objeto auditado (AuditLog.target_type es el nombre del modelo)
+TARGET_LABELS = {
+    "project": "Proyecto", "milestone": "Hito", "deliverable": "Entregable", "projectmembership": "Integrante",
+    "deliverableversion": "Versión", "evaluation": "Evaluación",
+}
 
 
 def _reviewable_project_ids(user):
@@ -38,31 +59,42 @@ def _reviewable_project_ids(user):
     )
 
 
+def _role_of(user):
+    """Rol que guía el inicio: admin, líder, evaluador o estudiante."""
+    if is_global_admin(user):
+        return "admin"
+    roles = set(ProjectMembership.objects.filter(user=user).values_list("role", flat=True))
+    if Role.LEADER in roles:
+        return "leader"
+    if Role.EVALUATOR in roles or user.global_role == user.GlobalRole.EVALUATOR:
+        return "evaluator"
+    return "student"
+
+
 @login_required
 def dashboard(request):
     """Inicio según el rol: el estudiante ve lo que debe entregar; el evaluador y el líder, lo que deben revisar;
     el administrador, además, un resumen de toda la plataforma."""
     user = request.user
     now = timezone.now()
+    live_deliverables = Q(milestones__deleted_at__isnull=True, milestones__deliverables__deleted_at__isnull=True)
     projects = (
         filter_projects_for_user(Project.objects.all(), user)
         .annotate(
-            total=Count("milestones__deliverables", filter=Q(milestones__deleted_at__isnull=True, milestones__deliverables__deleted_at__isnull=True), distinct=True),
+            total=Count("milestones__deliverables", filter=live_deliverables, distinct=True),
             approved=Count(
                 "milestones__deliverables",
-                filter=Q(
-                    milestones__deleted_at__isnull=True,
-                    milestones__deliverables__deleted_at__isnull=True,
-                    milestones__deliverables__status=Status.APPROVED,
-                ),
+                filter=live_deliverables & Q(milestones__deliverables__status=Status.APPROVED),
                 distinct=True,
             ),
         )
+        .prefetch_related(Prefetch("memberships", queryset=ProjectMembership.objects.select_related("user")))
         .order_by("name")
     )
     roles = dict(ProjectMembership.objects.filter(user=user).values_list("project_id", "role"))
     for project in projects:
-        project.my_role = Role(roles[project.pk]).label if project.pk in roles else "Administrador"
+        project.my_role = roles.get(project.pk, "admin")
+        project.my_role_label = Role(roles[project.pk]).label if project.pk in roles else "Administrador"
 
     pending = (
         Deliverable.objects.filter(assignees=user, status__in=SUBMITTABLE_STATES, **LIVE)
@@ -72,14 +104,25 @@ def dashboard(request):
     to_review = (
         Deliverable.objects.filter(milestone__project_id__in=_reviewable_project_ids(user), status__in=EVALUABLE_STATES, **LIVE)
         .select_related("milestone__project")
+        .prefetch_related("assignees")
         .order_by("submitted_at")
     )
-    is_reviewer = is_global_admin(user) or ProjectMembership.objects.filter(
-        user=user, role__in=[Role.LEADER, Role.EVALUATOR]
-    ).exists()
+    role = _role_of(user)
+    is_reviewer = role in ("admin", "leader", "evaluator")
+
+    # Indicadores: los propios del estudiante; los de sus proyectos para quien revisa
+    scope = Deliverable.objects.filter(**LIVE)
+    scope = scope.filter(milestone__project_id__in=_reviewable_project_ids(user)) if is_reviewer else scope.filter(assignees=user)
+    counts = dict(scope.values_list("status").annotate(n=Count("pk", distinct=True)))
+    kpis = {
+        "pending": counts.get(Status.PENDING, 0) + counts.get(Status.REJECTED, 0),
+        "in_review": counts.get(Status.SUBMITTED, 0) + counts.get(Status.IN_REVIEW, 0),
+        "late": scope.filter(is_late=True).count(),
+        "approved": counts.get(Status.APPROVED, 0),
+    }
 
     overview = None
-    if is_global_admin(user):
+    if role == "admin":
         live = Deliverable.objects.filter(**LIVE)
         by_status = dict(live.values_list("status").annotate(n=Count("pk")))
         overview = {
@@ -100,18 +143,42 @@ def dashboard(request):
             "pending": pending,
             "to_review": to_review,
             "is_reviewer": is_reviewer,
+            "role": role,
+            "kpis": kpis,
             "overview": overview,
             "now": now,
+            "nav": "home",
         },
     )
 
 
 @login_required
-def project_detail(request, pk):
+def my_deliverables(request):
+    deliverables = (
+        Deliverable.objects.filter(assignees=request.user, **LIVE)
+        .select_related("milestone__project")
+        .annotate(version_count=Count("versions", distinct=True))
+        .order_by("due_at")
+    )
+    return render(
+        request, "web/my_deliverables.html", {"deliverables": deliverables, "now": timezone.now(), "nav": "mine"}
+    )
+
+
+def _get_project(request, pk):
     # Proyecto ajeno → 404, igual que en la API
-    project = get_object_or_404(filter_projects_for_user(Project.objects.all(), request.user), pk=pk)
+    return get_object_or_404(filter_projects_for_user(Project.objects.all(), request.user), pk=pk)
+
+
+@login_required
+def project_detail(request, pk):
+    project = _get_project(request, pk)
     metrics = project_metrics(project)
     milestones = project.milestones.prefetch_related("deliverables__assignees").order_by("due_date")
+    memberships = sorted(
+        project.memberships.select_related("user"),
+        key=lambda m: ({Role.LEADER: 0, Role.MEMBER: 1}.get(m.role, 2), m.user.username.lower()),
+    )
     status_labels = dict(Status.choices)
     chart = {
         "status_labels": [status_labels[s] for s in Status.values],
@@ -121,6 +188,7 @@ def project_detail(request, pk):
         "members": [m["name"] for m in metrics["members"]],
         "member_commits": [m["commits"] for m in metrics["members"]],
     }
+    can_manage = can_manage_members(request.user, project)
     return render(
         request,
         "web/project_detail.html",
@@ -128,11 +196,189 @@ def project_detail(request, pk):
             "project": project,
             "metrics": metrics,
             "milestones": milestones,
+            "memberships": memberships,
+            "commits": Commit.objects.filter(project=project).select_related("author", "deliverable")[:8],
+            "pulls": project.pull_requests.select_related("author", "deliverable")[:6],
             "chart": chart,
             "can_review": can_review(request.user, project),
+            "can_manage": can_manage,
+            "milestone_form": MilestoneForm() if can_manage else None,
+            "deliverable_form": DeliverableForm(project=project) if can_manage else None,
             "now": timezone.now(),
+            "nav": "home",
         },
     )
+
+
+@login_required
+@require_POST
+def milestone_create(request, pk):
+    project = _get_project(request, pk)
+    if not can_manage_members(request.user, project):
+        raise PermissionDenied("Solo el líder del proyecto puede crear hitos.")
+    form = MilestoneForm(request.POST)
+    if form.is_valid():
+        with transaction.atomic():
+            milestone = Milestone.objects.create(project=project, **form.cleaned_data)
+            log_action(
+                request.user,
+                Action.MILESTONE_CREATED,
+                milestone,
+                changes=diff({}, snapshot(milestone, ("title", "description", "due_date"))),
+            )
+        messages.success(request, f"Hito «{milestone.title}» creado.")
+    else:
+        messages.error(request, "Revisa el hito: el título y la fecha son obligatorios.")
+    return redirect("web:project", pk=pk)
+
+
+@login_required
+@require_POST
+def deliverable_create(request, pk):
+    project = _get_project(request, pk)
+    if not can_manage_members(request.user, project):
+        raise PermissionDenied("Solo el líder del proyecto puede crear entregables.")
+    form = DeliverableForm(request.POST, project=project)
+    if not form.is_valid():
+        messages.error(request, "Revisa el entregable: hito, título y fecha de entrega son obligatorios.")
+        return redirect("web:project", pk=pk)
+    data = form.cleaned_data
+    with transaction.atomic():
+        deliverable = Deliverable.objects.create(
+            milestone=data["milestone"], title=data["title"], description=data["description"], due_at=data["due_at"]
+        )
+        log_action(
+            request.user,
+            Action.DELIVERABLE_CREATED,
+            deliverable,
+            changes=diff({}, snapshot(deliverable, ("title", "description", "due_at"))),
+        )
+        # Asigna, audita y avisa a cada asignado (Etapa 4)
+        set_deliverable_assignees(deliverable, request.user, list(data["assignees"]))
+    messages.success(request, f"Entregable «{deliverable.title}» creado y asignado.")
+    return redirect("web:deliverable", pk=deliverable.pk)
+
+
+@login_required
+def project_audit(request, pk):
+    """La auditoría del proyecto en la web, con filtros: solo líder, evaluador del proyecto o admin."""
+    project = _get_project(request, pk)
+    if not can_review(request.user, project):
+        raise PermissionDenied("Solo el líder, el evaluador del proyecto o un administrador puede ver la auditoría.")
+    actors = User.objects.filter(memberships__project=project).order_by("first_name", "username").distinct()
+    form = AuditFilterForm(request.GET or None, actors=actors)
+    logs = AuditLog.objects.filter(project=project).select_related("actor")
+    if form.is_valid():
+        data = form.cleaned_data
+        if data["action"]:
+            logs = logs.filter(action=data["action"])
+        if data["actor"]:
+            logs = logs.filter(actor=data["actor"])
+        if data["date_from"]:
+            logs = logs.filter(created_at__date__gte=data["date_from"])
+        if data["date_to"]:
+            logs = logs.filter(created_at__date__lte=data["date_to"])
+    page = Paginator(logs, 25).get_page(request.GET.get("page"))
+    query = request.GET.copy()
+    query.pop("page", None)
+    return render(
+        request,
+        "web/audit.html",
+        {
+            "project": project,
+            "form": form,
+            "page": page,
+            "labels": dict(Action.choices),
+            "targets": TARGET_LABELS,
+            "query": query.urlencode(),
+            "nav": "home",
+        },
+    )
+
+
+HISTORY_SIZES = (100, 250, 500)
+
+
+@login_required
+def project_history(request, pk):
+    """Historial del repo como en GitKraken (simple): grafo de ramas, PR y entregables vinculados."""
+    project = _get_project(request, pk)
+    size = request.GET.get("n", "")
+    size = int(size) if size.isdigit() and int(size) in HISTORY_SIZES else HISTORY_SIZES[0]
+    commits = list(
+        Commit.objects.filter(project=project).select_related("author", "deliverable").order_by("-committed_at")[:size]
+    )
+    pulls = list(project.pull_requests.select_related("author", "deliverable"))
+    # Solo el PR que quedó como versión entregada se revisa; los demás que mencionan el entregable son referencia
+    delivered_urls = set(
+        DeliverableVersion.objects.filter(deliverable__milestone__project=project).values_list("url", flat=True)
+    )
+    for pr in pulls:
+        pr.is_submission = pr.deliverable_id is not None and pr.url in delivered_urls
+    authors = User.objects.filter(commits__project=project).order_by("first_name", "username").distinct()
+    branches = sorted({c.branch for c in commits if c.branch})
+    form = HistoryFilterForm(request.GET or None, authors=authors, branches=branches)
+
+    highlight = None
+    if form.is_valid() and any(form.cleaned_data.values()):
+        data = form.cleaned_data
+
+        def highlight(commit):
+            return (
+                (not data["author"] or commit.author_id == data["author"].pk)
+                and (not data["branch"] or commit.branch == data["branch"])
+                and (not data["linked"] or commit.deliverable_id is not None)
+            )
+
+    graph = build_graph(commits, pulls, highlight)
+    return render(
+        request,
+        "web/history.html",
+        {
+            "project": project,
+            "graph": graph,
+            "pulls": pulls,
+            # Primero los que esperan revisión; el resto, del más nuevo al más viejo
+            "shown_pulls": pulls if request.GET.get("prs") == "todos" else sorted(
+                pulls, key=lambda pr: (pr.state != pr.State.OPEN, -pr.number)
+            )[:8],
+            "form": form,
+            "filtered": highlight is not None,
+            "matches": sum(1 for row in graph["rows"] if not row["dim"]),
+            "size": size,
+            "sizes": HISTORY_SIZES,
+            "total": Commit.objects.filter(project=project).count(),
+            "can_sync": can_manage_members(request.user, project) and bool(project.github_repo),
+            "can_review": can_review(request.user, project),
+            "nav": "home",
+        },
+    )
+
+
+@login_required
+@require_POST
+def project_history_sync(request, pk):
+    """El líder trae de GitHub commits, ramas y PR desde la web (sin entrar a la API)."""
+    project = _get_project(request, pk)
+    if not can_manage_members(request.user, project):
+        raise PermissionDenied("Solo el líder del proyecto puede sincronizar con GitHub.")
+    if not project.github_repo:
+        messages.error(request, "El proyecto no tiene un repositorio de GitHub vinculado.")
+        return redirect("web:project_history", pk=pk)
+    try:
+        # Directo, sin Celery: en Railway no hay worker
+        result = sync_project_commits(project.pk)
+    except HTTPError as error:
+        messages.error(request, f"GitHub respondió {error.code}. Si es 403, se alcanzó el límite de la API: prueba en un rato.")
+    except URLError:
+        messages.error(request, "No se pudo conectar con GitHub.")
+    else:
+        messages.success(
+            request,
+            f"Sincronizado: {result['created']} commits nuevos, {result['pull_requests']} PR nuevos, "
+            f"{result['linked']} vinculados.",
+        )
+    return redirect("web:project_history", pk=pk)
 
 
 def _get_deliverable(request, pk):
@@ -146,21 +392,67 @@ def deliverable_detail(request, pk):
     project = deliverable.project
     is_assignee = deliverable.assignees.filter(pk=request.user.pk).exists()
     reviewer = can_review(request.user, project)
+
+    # Cada versión con la evaluación que recibió (la primera hecha después de entregarla)
+    evaluations = list(deliverable.evaluations.select_related("evaluator").order_by("created_at"))
+    versions = list(deliverable.versions.select_related("author").order_by("number"))
+    for i, version in enumerate(versions):
+        until = versions[i + 1].created_at if i + 1 < len(versions) else None
+        version.evaluation = next(
+            (e for e in evaluations if e.created_at >= version.created_at and (until is None or e.created_at < until)), None
+        )
+    versions.reverse()
+
+    status = deliverable.status
+    reached = {
+        Status.PENDING: 0, Status.REJECTED: 0, Status.SUBMITTED: 1, Status.LATE: 1, Status.IN_REVIEW: 2, Status.APPROVED: 3,
+    }[status]
+    flow = [
+        {"label": "Pendiente", "state": "done" if reached > 0 else "current"},
+        {"label": "Entregado", "state": "done" if reached > 1 else ("current" if reached == 1 else "")},
+        {"label": "En revisión", "state": "done" if reached > 2 else ("current" if reached == 2 else "")},
+        {"label": "Aprobado o rechazado", "state": "current" if reached == 3 else ""},
+    ]
+    history = AuditLog.objects.filter(target_type="deliverable", target_id=deliverable.pk).select_related("actor")[:12]
     return render(
         request,
         "web/deliverable_detail.html",
         {
             "deliverable": deliverable,
             "project": project,
-            "versions": deliverable.versions.select_related("author").order_by("-number"),
-            "evaluations": deliverable.evaluations.select_related("evaluator"),
+            "versions": versions,
+            "evaluations": evaluations,
             "commits": deliverable.commits.select_related("author")[:20],
-            "can_submit": is_assignee and deliverable.status in SUBMITTABLE_STATES,
-            "can_evaluate": reviewer and deliverable.status in EVALUABLE_STATES,
+            "pulls": deliverable.pull_requests.select_related("author"),
+            "history": history,
+            "labels": dict(Action.choices),
+            "flow": flow,
+            "can_submit": is_assignee and status in SUBMITTABLE_STATES,
+            "can_evaluate": reviewer and status in EVALUABLE_STATES,
+            "can_review": reviewer,
+            "can_manage": can_manage_members(request.user, project),
+            "gemini": reviewer and gemini_enabled(),
+            "gemini_text": request.session.pop(f"gemini-{deliverable.pk}", None),
+            "next_version": len(versions) + 1,
             "submit_form": SubmitForm(),
             "evaluate_form": EvaluateForm(),
+            "nav": "home",
         },
     )
+
+
+@login_required
+@require_POST
+def deliverable_gemini(request, pk):
+    """El revisor pide a Gemini un resumen del PR y los commits; se muestra una vez en la página."""
+    deliverable = _get_deliverable(request, pk)
+    if not can_review(request.user, deliverable.project) or not gemini_enabled():
+        raise PermissionDenied("Solo el líder o el evaluador del proyecto puede pedir sugerencias.")
+    try:
+        request.session[f"gemini-{deliverable.pk}"] = suggest_for_deliverable(deliverable)
+    except GeminiError as error:
+        messages.error(request, str(error))
+    return redirect("web:deliverable", pk=pk)
 
 
 def _run(request, action, success):
@@ -185,7 +477,7 @@ def deliverable_submit(request, pk):
         _run(
             request,
             lambda: submit_deliverable(deliverable, request.user, url=form.cleaned_data["url"], comment=form.cleaned_data["comment"]),
-            "Entrega registrada. Se guardó una nueva versión.",
+            "Entrega registrada. Se guardó una nueva versión y se avisó al líder y al evaluador.",
         )
     return redirect("web:deliverable", pk=pk)
 
@@ -201,7 +493,7 @@ def deliverable_evaluate(request, pk):
         _run(
             request,
             lambda: evaluate_deliverable(deliverable, request.user, **form.cleaned_data),
-            "Evaluación registrada.",
+            "Evaluación registrada. Se avisó a los asignados.",
         )
     return redirect("web:deliverable", pk=pk)
 
@@ -213,7 +505,7 @@ def notifications(request):
         messages.success(request, "Todos los avisos quedaron como leídos.")
         return redirect("web:notifications")
     items = Notification.objects.filter(recipient=request.user).select_related("project")[:50]
-    return render(request, "web/notifications.html", {"items": items})
+    return render(request, "web/notifications.html", {"items": items, "nav": "notifications"})
 
 
 @login_required
@@ -236,6 +528,19 @@ class LoginView(auth_views.LoginView):
         return {**super().get_context_data(**kwargs), "github_oauth": oauth.is_configured()}
 
 
+class PasswordResetView(auth_views.PasswordResetView):
+    """«¿Olvidaste tu contraseña?»: manda el enlace con el dominio público (SITE_URL), no el del proxy."""
+
+    template_name = "web/password_reset.html"
+    email_template_name = "web/password_reset_email.txt"
+    subject_template_name = "web/password_reset_subject.txt"
+    success_url = reverse_lazy("web:password_reset_done")
+
+    def form_valid(self, form):
+        self.extra_email_context = {"site_url": settings.SITE_URL.rstrip("/")}
+        return super().form_valid(form)
+
+
 @login_required
 def profile(request):
     previous = request.user.github_username
@@ -247,4 +552,6 @@ def profile(request):
             link_user_commits(user)
         messages.success(request, "Perfil actualizado.")
         return redirect("web:profile")
-    return render(request, "web/profile.html", {"form": form})
+    return render(
+        request, "web/profile.html", {"form": form, "calendar_url": feed_url(request.user), "nav": "profile"}
+    )

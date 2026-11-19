@@ -1,0 +1,31 @@
+{% extends "web/base.html" %}
+{% block title %}Mis entregables{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="title">
+    <h1>Mis entregables</h1>
+    <p class="muted">Todo lo que tienes asignado en tus proyectos, del más próximo a vencer al más lejano.</p>
+  </div>
+</div>
+<section class="card flush">
+  {% if deliverables %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Entregable</th><th>Proyecto · hito</th><th>Estado</th><th>Versiones</th><th>Vence</th><th>Entregado</th></tr></thead>
+    <tbody>
+    {% for d in deliverables %}
+      <tr>
+        <td><a href="{% url 'web:deliverable' d.pk %}"><span class="mono">#D{{ d.pk }}</span> {{ d.title }}</a></td>
+        <td>{{ d.milestone.project.name }} · {{ d.milestone.title }}</td>
+        <td><span class="badge status-{{ d.status }}">{{ d.get_status_display }}</span>{% if d.is_late and d.status != "late" %} <span class="badge late">Tarde</span>{% endif %}</td>
+        <td>{{ d.version_count }}</td>
+        <td class="{% if d.due_at < now and not d.submitted_at %}overdue{% endif %}">{{ d.due_at|date:"d M Y · H:i" }}</td>
+        <td>{{ d.submitted_at|date:"d M · H:i"|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="empty">No tienes entregables asignados. El líder de tu proyecto los asigna desde la página del proyecto.</p>
+  {% endif %}
+</section>
+{% endblock %}

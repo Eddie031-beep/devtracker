@@ -140,7 +140,7 @@ push de un repo distinto al vinculado → **400**; un commit que ya estaba regis
    | Content type | `application/json` (obligatorio) |
    | Secret | el mismo secreto del paso 1 |
    | SSL verification | Enable |
-   | Which events | *Just the push event* |
+   | Which events | *Let me select individual events* → **Pushes** y **Pull requests** |
 
 4. Al guardar, GitHub manda un `ping`: en *Recent Deliveries* debe verse un 200. Haz un push y los
    commits aparecen en el admin (*Integrations → Commits*). Si sale 403, el secreto no coincide.
@@ -184,6 +184,28 @@ Sin worker de Celery (como en staging), la sincronización se corre a mano desde
 python manage.py sync_github_commits <id_proyecto>   # uno o varios ids
 python manage.py sync_github_commits --all           # todos los proyectos con repo vinculado
 ```
+
+### Pull requests e historial (estilo GitKraken)
+
+Cada integrante trabaja en su rama y abre un PR **desde su propia cuenta de GitHub** con
+`#D<id>` en el título, la descripción o el nombre de la rama (`feature/D12-dashboard`):
+
+1. Llega el evento `pull_request` al webhook y el PR queda registrado (modelo `PullRequest`; repetir el
+   evento no lo duplica, solo actualiza su estado: abierta, fusionada o cerrada).
+2. Si quien lo abre es la persona **asignada** al entregable, el entregable pasa a *Entregado* y se crea
+   una versión con el enlace del PR. Al líder y al evaluador les llega el aviso.
+3. El profesor o revisor abre el entregable y decide: **Aprobar** (completo) o **Rechazar** (no completo,
+   con retroalimentación).
+4. Si fue rechazado, el siguiente push al mismo PR vuelve a entregarlo como versión nueva.
+
+No se entrega si el PR es borrador, si la cuenta de GitHub no es de un integrante (revisa el usuario de
+GitHub en *Mi perfil*) o si quien lo abre no es el asignado; la respuesta del webhook dice por qué
+(*Recent Deliveries* en GitHub).
+
+La página **Historial** del proyecto (`/proyectos/<id>/historial/`) muestra el grafo de ramas y
+fusiones, la etiqueta de cada rama y PR, el entregable vinculado y el autor de cada commit, con filtros
+por integrante, rama y «solo vinculados». Ahí mismo el líder tiene el botón **Sincronizar con GitHub**,
+que trae commits (rama principal y demás ramas vivas, con sus padres reales) y los PR, sin entrar a la API.
 
 ### Evaluación de entregables
 
@@ -232,6 +254,18 @@ En `/` (login en `/login/` con el mismo usuario de la API):
 
 Los permisos son los mismos que en la API: proyecto o entregable ajeno → 404.
 
+**Usuarios del equipo:** `python manage.py crear_equipo --password <clave> --proyecto 1` crea (o actualiza) las
+cuentas de Harold, Brayan, Carlos y Eliecias, más un evaluador `profesor`, con esa contraseña, su usuario de
+GitHub, su rol en el proyecto y sus responsabilidades. Cada uno puede cambiarla después.
+
+**Cómo participa cada uno en la web:**
+
+| Rol | Qué hace |
+|---|---|
+| Líder | En el proyecto crea hitos y entregables («Nuevo hito», «Nuevo entregable») y asigna a cada integrante; aprueba o rechaza con nota |
+| Integrante | Ve sus pendientes en el inicio y en *Mis entregables*, entrega con un enlace y sigue sus avisos |
+| Evaluador | Ve lo que espera revisión, evalúa con nota y comentario, consulta métricas, reportes y la auditoría (`/proyectos/<id>/auditoria/`) |
+
 **Datos de ejemplo para la demo:** `python manage.py cargar_demo --proyecto 1` crea 3 hitos y 15
 entregables repartidos entre los integrantes, con entregas a tiempo y tarde, rechazos, reentregas y
 evaluaciones. Usa el flujo real, así que también llena la auditoría. Si ya se cargó, no hace nada.
@@ -270,8 +304,43 @@ Desde la página del proyecto, sección **Reportes** (mismos permisos que el pro
 
 - **Reporte imprimible** (`/proyectos/<id>/reporte/`): resumen, desempeño por integrante y entregables;
   el botón *Imprimir / guardar como PDF* lo exporta.
+- **Excel** (`devtracker.xlsx`): un libro con las hojas *Entregables*, *Integrantes* y, si quien descarga
+  puede verla, *Auditoría*. Se genera sin dependencias extra y los textos nunca se interpretan como fórmulas.
 - **CSV** (se abren en Excel): `entregables.csv`, `integrantes.csv` y `auditoria.csv` (este último solo
   para líder, evaluador del proyecto o admin; integrante → 403).
+
+### Administración desde la web (sin entrar a la API)
+
+| Página | Quién | Qué hace |
+|---|---|---|
+| Inicio → **Nuevo proyecto** | Líder o admin | Crea el proyecto; quien lo crea queda como líder |
+| Proyecto → **Editar** | Líder o admin | Nombre, fechas, repo de GitHub; **genera el secreto del webhook** y muestra la Payload URL (una sola vez) |
+| Proyecto → **Integrantes** | Líder o admin | Agregar usuario con rol y responsabilidades, cambiar rol, quitar (no deja quitar al único líder) |
+| Hito → **Editar hito** / Entregable → **Editar** | Líder o admin | Editar, reasignar o **eliminar** (lógico) |
+
+Todo pasa por las mismas reglas que la API: integrante → 403, proyecto ajeno → 404, cada cambio queda en la
+auditoría y eliminar solo marca `deleted_at` (versiones, evaluaciones y auditoría se conservan). Cambiar la
+fecha de un entregable no le quita la marca de «tarde».
+
+### Recuperar contraseña
+
+En el login, **¿Olvidaste tu contraseña?** (`/recuperar/`) manda un enlace de un solo uso al correo de la
+cuenta; la respuesta es la misma exista o no el correo. Con el `EMAIL_BACKEND` por defecto (consola) el
+correo sale en los logs del servidor (en Railway: *Deploy Logs*). Para correo real:
+`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST=smtp.gmail.com`,
+`EMAIL_HOST_USER` y `EMAIL_HOST_PASSWORD` (contraseña de aplicación de Google).
+
+### Modo oscuro, calendario y Gemini (Could Have)
+
+- **Modo oscuro**: botón en el menú lateral; se recuerda en el navegador y, si no se eligió, sigue el tema
+  del sistema operativo. Al imprimir siempre sale en claro.
+- **Calendario iCal**: en *Mi perfil* está el enlace personal para suscribirse desde Google Calendar
+  (*Otros calendarios → Desde URL*) o el botón *Descargar .ics*. Incluye los entregables asignados (o todos
+  los del proyecto si eres líder o evaluador), los cierres de hito y un aviso un día antes.
+- **Sugerencias con Gemini**: con `GEMINI_API_KEY` (y opcional `GEMINI_MODEL`, por defecto
+  `gemini-2.5-flash`), el líder o evaluador ve en el entregable *Pedir sugerencias*: Gemini lee el texto
+  del PR y los mensajes de los commits y resume qué cambia, qué podría faltar y qué revisar. No pone notas:
+  aprobar o rechazar lo sigue decidiendo una persona. Sin la clave, no aparece.
 
 ### Iniciar sesión con GitHub (OAuth2) y perfil
 
@@ -287,6 +356,30 @@ Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o t
 El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
+
+## Cobertura del MoSCoW (Laboratorio 3)
+
+| # | Requisito | Prioridad | Dónde se ve |
+|---|---|---|---|
+| 1 | Autenticación, recuperación de contraseña y RBAC global | Must | Login, `/recuperar/`, roles globales |
+| 2 | Permisos a nivel de proyecto | Must | Proyecto ajeno → 404 en web y API |
+| 3 | CRUD de proyectos, hitos y entregables (borrado lógico) | Must | Nuevo proyecto, Editar, Editar hito, Editar entregable |
+| 4 | Integrantes y responsabilidades | Must | Proyecto → Integrantes |
+| 5 | Flujo de estados (tarde automático) | Must | Entregable → Flujo de estados |
+| 6 | Historial de versiones (append-only, sin diff) | Must | Entregable → Versiones entregadas |
+| 7 | Auditoría inmutable | Must | Proyecto → Auditoría |
+| 8 | GitHub (webhook idempotente de push y PR, sincronización) | Must | Proyecto → Historial |
+| 9 | Métricas (commits, PR, entregas, participación) | Must | Proyecto → Métricas por integrante |
+| 10 | Dashboard por rol | Must | Inicio |
+| 11 | Evaluación y retroalimentación | Must | Entregable → Aprobar / Rechazar |
+| 12 | Notificaciones internas y correo | Should | Avisos |
+| 13 | Reportes PDF / Excel | Should | Proyecto → Reportes |
+| 14 | OAuth2 con GitHub | Should | Login → Entrar con GitHub |
+| 15 | API documentada | Could | `/api/docs/` |
+| 16 | Sugerencias con Gemini | Could | Entregable (con `GEMINI_API_KEY`) |
+| 17 | Modo oscuro | Could | Menú lateral |
+| 18 | Calendario iCal | Could | Mi perfil |
+| 19–20 | App móvil, pagos | Won't (por ahora) | — |
 
 ## Despliegue (Railway, staging)
 

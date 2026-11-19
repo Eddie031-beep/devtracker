@@ -201,6 +201,16 @@ SITE_URL = env("SITE_URL", default=f"https://{RAILWAY_PUBLIC_DOMAIN}" if RAILWAY
 
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="DevTracker <no-reply@devtracker.local>")
+# Sugerencias con Gemini (opcional): sin clave el botón no aparece
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.5-flash")
+
+# Con EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend (p. ej. Gmail con contraseña de aplicación)
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 
 CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_TIMEZONE = TIME_ZONE
