@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.evaluations.models import Evaluation
-from apps.integrations.models import Commit
+from apps.integrations.models import Commit, PullRequest
 from apps.projects.models import Deliverable, DeliverableVersion, ProjectMembership
 
 User = get_user_model()
@@ -64,6 +64,8 @@ def project_metrics(project):
         for moment in commits.filter(committed_at__date__gte=first_week).values_list("committed_at", flat=True)
     )
     commits_by_author = Counter(commits.exclude(author=None).values_list("author_id", flat=True))
+    pulls = PullRequest.objects.filter(project=project)
+    pulls_by_author = Counter(pulls.exclude(author=None).values_list("author_id", flat=True))
     versions_by_author = Counter(
         DeliverableVersion.objects.filter(deliverable_id__in=ids).values_list("author_id", flat=True)
     )
@@ -94,6 +96,7 @@ def project_metrics(project):
                 "on_time_rate": _percent(len(own_delivered) - len(own_late), len(own_delivered)),
                 "average_score": _average(scores[d.pk] for d in own if d.pk in scores),
                 "commits": commits_by_author.get(user.pk, 0),
+                "pull_requests": pulls_by_author.get(user.pk, 0),
                 "versions": versions_by_author.get(user.pk, 0),
             }
         )
@@ -121,6 +124,12 @@ def project_metrics(project):
                 {"week": str(first_week + timedelta(weeks=i)), "count": weekly.get(first_week + timedelta(weeks=i), 0)}
                 for i in range(WEEKS)
             ],
+        },
+        "pull_requests": {
+            "total": pulls.count(),
+            "open": pulls.filter(state=PullRequest.State.OPEN).count(),
+            "merged": pulls.filter(state=PullRequest.State.MERGED).count(),
+            "linked_to_deliverables": pulls.exclude(deliverable=None).count(),
         },
         "members": members,
     }

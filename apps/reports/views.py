@@ -115,12 +115,13 @@ def members_csv(request, pk):
             "" if m["average_score"] is None else m["average_score"],
             m["versions"],
             m["commits"],
+            m["pull_requests"],
         ]
         for m in project_metrics(project)["members"]
     ]
     header = [
         "Integrante", "Usuario", "Rol", "Asignados", "Entregados", "Tarde", "% a tiempo",
-        "Aprobados", "Nota promedio", "Versiones", "Commits",
+        "Aprobados", "Nota promedio", "Versiones", "Commits", "PR",
     ]
     return _csv_response(project, "integrantes", header, rows)
 

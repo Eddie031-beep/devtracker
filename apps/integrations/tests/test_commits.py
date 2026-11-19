@@ -175,7 +175,17 @@ class CommitListTests(ProjectFixture):
         self.assertEqual(self.client.get(self.url).status_code, 404)
 
 
-class CommitSyncTests(ProjectFixture):
+class NoExtrasMixin:
+    """La sincronización también pide ramas y PR: en estas pruebas GitHub no tiene ninguno."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("apps.integrations.tasks.fetch_repo_extras", return_value=("main", {}, []))
+        self.extras = patcher.start()
+        self.addCleanup(patcher.stop)
+
+
+class CommitSyncTests(NoExtrasMixin, ProjectFixture):
     @override_settings(GITHUB_TOKEN="tkn")
     def test_tarea_guarda_historial_y_no_duplica_lo_del_webhook(self):
         self.save(push_commit("a" * 40))
@@ -232,7 +242,7 @@ class CommitSyncTests(ProjectFixture):
         self.assertEqual(client.post(url).status_code, 400)
 
 
-class SyncCommandTests(ProjectFixture):
+class SyncCommandTests(NoExtrasMixin, ProjectFixture):
     def run_command(self, *args):
         out, err = io.StringIO(), io.StringIO()
         call_command("sync_github_commits", *args, stdout=out, stderr=err)

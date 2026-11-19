@@ -89,7 +89,7 @@
 
   <aside class="stack" style="gap: 24px">
     {% if can_evaluate %}
-    <section class="card">
+    <section class="card" id="evaluar">
       <header><h2>Evaluar</h2></header>
       <form method="post" action="{% url 'web:deliverable_evaluate' deliverable.pk %}">{% csrf_token %}
         <div class="field">{{ evaluate_form.score.label_tag }}{{ evaluate_form.score }}</div>
@@ -109,6 +109,23 @@
       <header><h2>Flujo de estados</h2></header>
       <ol class="flow">{% for step in flow %}<li class="{{ step.state }}">{{ step.label }}{% if step.state == "current" %} (actual){% endif %}</li>{% endfor %}</ol>
       {% if deliverable.status == "rejected" %}<p class="small" style="margin-top: 10px">Fue rechazado: el asignado puede entregar una nueva versión.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <header><h2>Pull requests</h2></header>
+      {% if pulls %}
+      <ul class="feed">
+        {% for pr in pulls %}
+        <li>
+          <div class="stack" style="gap: 2px; min-width: 0">
+            <a href="{{ pr.url }}" target="_blank" rel="noopener"><span class="mono">#{{ pr.number }}</span> {{ pr.title|truncatechars:50 }}</a>
+            <span class="muted small">{% if pr.author %}{{ pr.author.get_full_name|default:pr.author.username }}{% else %}{{ pr.author_login }}{% endif %} · <span class="mono">{{ pr.head_ref }}</span> · {{ pr.opened_at|date:"d M" }}</span>
+          </div>
+          <span class="when"><span class="badge pr-{{ pr.state }}">{{ pr.get_state_display }}</span></span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted small">Abre un pull request con <code>#D{{ deliverable.pk }}</code> en el título: si lo abre la persona asignada, queda entregado con el enlace del PR.</p>{% endif %}
     </section>
 
     <section class="card">

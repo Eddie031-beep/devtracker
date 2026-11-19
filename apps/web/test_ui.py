@@ -90,3 +90,75 @@ class TeamCommandTests(TestCase):
         self.assertEqual(project.memberships.get(user=brayan).responsibilities, "CRUD, historial de versiones")
         self.assertEqual(project.memberships.get(user__username="profesor").role, Role.EVALUATOR)
         self.assertTrue(self.client.login(username="carlos", password="Clave-2026"))
+
+
+class HistoryPageTests(TestCase):
+    def setUp(self):
+        from apps.integrations.models import Commit, PullRequest
+
+        self.leader = User.objects.create_user("lider", "lider@x.com", "x", first_name="Lía")
+        self.ana = User.objects.create_user("ana", "ana@x.com", "x", first_name="Ana", github_username="AnaDev")
+        self.outsider = User.objects.create_user("ajeno", "ajeno@x.com", "x")
+        self.project = Project.objects.create(name="Demo", owner=self.leader, github_repo="equipo/devtracker")
+        ProjectMembership.objects.create(project=self.project, user=self.leader, role=Role.LEADER)
+        ProjectMembership.objects.create(project=self.project, user=self.ana, role=Role.MEMBER)
+        milestone = Milestone.objects.create(project=self.project, title="H1", due_date=timezone.now().date())
+        self.deliverable = Deliverable.objects.create(milestone=milestone, title="Login", due_at=timezone.now())
+        now = timezone.now()
+
+        def commit(sha, hours, parents, branch, **extra):
+            return Commit.objects.create(
+                project=self.project, sha=sha * 40, message=f"commit {sha}", committed_at=now - timedelta(hours=hours),
+                parents=[p * 40 for p in parents], branch=branch, **extra,
+            )
+
+        # a ← b (develop) y a ← c (feature) ; d = merge de b y c
+        commit("a", 5, [], "develop")
+        commit("b", 4, ["a"], "develop")
+        commit("c", 3, ["a"], "feature/login", author=self.ana, deliverable=self.deliverable)
+        commit("d", 1, ["b"], "develop")  # el push no trae el 2.º padre: lo completa el PR fusionado
+        PullRequest.objects.create(
+            project=self.project, number=5, title="Login", state=PullRequest.State.MERGED, author=self.ana,
+            head_ref="feature/login", base_ref="develop", head_sha="c" * 40, merge_sha="d" * 40,
+            opened_at=now, deliverable=self.deliverable, url="https://github.com/equipo/devtracker/pull/5",
+        )
+        self.url = reverse("web:project_history", args=[self.project.pk])
+
+    def test_grafo_con_ramas_fusion_y_pr(self):
+        from apps.integrations.models import Commit, PullRequest
+
+        from .history import build_graph
+
+        graph = build_graph(Commit.objects.filter(project=self.project), PullRequest.objects.all())
+        shas = [row["commit"].sha[0] for row in graph["rows"]]
+        self.assertEqual(shas, ["d", "c", "b", "a"])
+        self.assertTrue(graph["rows"][0]["merge"])  # d tiene dos padres gracias al PR
+        self.assertEqual([p.number for p in graph["rows"][0]["pulls"]], [5])
+        self.assertEqual(graph["rows"][1]["branch"], "feature/login")
+        self.assertGreater(graph["width"], 30)  # se abrió un segundo carril
+
+    def test_pagina_para_integrantes_con_filtros(self):
+        self.client.force_login(self.ana)
+        page = self.client.get(self.url)
+        self.assertContains(page, "Historial del repositorio")
+        self.assertContains(page, "PR #5")
+        self.assertContains(page, f"#D{self.deliverable.pk}")
+        self.assertNotContains(page, "Sincronizar con GitHub")  # solo el líder
+        self.assertContains(page, "No es la entrega")  # el PR menciona el entregable, pero no lo entregó
+        page = self.client.get(self.url, {"author": self.ana.pk})
+        self.assertContains(page, "1 de 4 commits coinciden")
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+
+    def test_lider_sincroniza_desde_la_web(self):
+        from unittest import mock
+
+        self.client.force_login(self.ana)
+        sync_url = reverse("web:project_history_sync", args=[self.project.pk])
+        self.assertEqual(self.client.post(sync_url).status_code, 403)
+        self.client.force_login(self.leader)
+        result = {"created": 3, "linked": 1, "pull_requests": 2}
+        with mock.patch("apps.web.views.sync_project_commits", return_value=result) as sync:
+            response = self.client.post(sync_url, follow=True)
+        sync.assert_called_once_with(self.project.pk)
+        self.assertContains(response, "3 commits nuevos, 2 PR nuevos")

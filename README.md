@@ -140,7 +140,7 @@ push de un repo distinto al vinculado → **400**; un commit que ya estaba regis
    | Content type | `application/json` (obligatorio) |
    | Secret | el mismo secreto del paso 1 |
    | SSL verification | Enable |
-   | Which events | *Just the push event* |
+   | Which events | *Let me select individual events* → **Pushes** y **Pull requests** |
 
 4. Al guardar, GitHub manda un `ping`: en *Recent Deliveries* debe verse un 200. Haz un push y los
    commits aparecen en el admin (*Integrations → Commits*). Si sale 403, el secreto no coincide.
@@ -184,6 +184,28 @@ Sin worker de Celery (como en staging), la sincronización se corre a mano desde
 python manage.py sync_github_commits <id_proyecto>   # uno o varios ids
 python manage.py sync_github_commits --all           # todos los proyectos con repo vinculado
 ```
+
+### Pull requests e historial (estilo GitKraken)
+
+Cada integrante trabaja en su rama y abre un PR **desde su propia cuenta de GitHub** con
+`#D<id>` en el título, la descripción o el nombre de la rama (`feature/D12-dashboard`):
+
+1. Llega el evento `pull_request` al webhook y el PR queda registrado (modelo `PullRequest`; repetir el
+   evento no lo duplica, solo actualiza su estado: abierta, fusionada o cerrada).
+2. Si quien lo abre es la persona **asignada** al entregable, el entregable pasa a *Entregado* y se crea
+   una versión con el enlace del PR. Al líder y al evaluador les llega el aviso.
+3. El profesor o revisor abre el entregable y decide: **Aprobar** (completo) o **Rechazar** (no completo,
+   con retroalimentación).
+4. Si fue rechazado, el siguiente push al mismo PR vuelve a entregarlo como versión nueva.
+
+No se entrega si el PR es borrador, si la cuenta de GitHub no es de un integrante (revisa el usuario de
+GitHub en *Mi perfil*) o si quien lo abre no es el asignado; la respuesta del webhook dice por qué
+(*Recent Deliveries* en GitHub).
+
+La página **Historial** del proyecto (`/proyectos/<id>/historial/`) muestra el grafo de ramas y
+fusiones, la etiqueta de cada rama y PR, el entregable vinculado y el autor de cada commit, con filtros
+por integrante, rama y «solo vinculados». Ahí mismo el líder tiene el botón **Sincronizar con GitHub**,
+que trae commits (rama principal y demás ramas vivas, con sus padres reales) y los PR, sin entrar a la API.
 
 ### Evaluación de entregables
 

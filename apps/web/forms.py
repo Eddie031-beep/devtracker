@@ -76,3 +76,15 @@ class AuditFilterForm(NoColonMixin, forms.Form):
         self.fields["action"].choices = [("", "Todas las acciones"), *Action.choices]
         self.fields["actor"].queryset = actors
         self.fields["actor"].label_from_instance = lambda u: u.get_full_name() or u.username
+
+
+class HistoryFilterForm(NoColonMixin, forms.Form):
+    author = forms.ModelChoiceField(label="Integrante", queryset=None, required=False, empty_label="Todos")
+    branch = forms.ChoiceField(label="Rama", required=False)
+    linked = forms.BooleanField(label="Solo vinculados a un entregable", required=False)
+
+    def __init__(self, *args, authors, branches, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["author"].queryset = authors
+        self.fields["author"].label_from_instance = lambda u: u.get_full_name() or u.username
+        self.fields["branch"].choices = [("", "Todas"), *((b, b) for b in branches)]

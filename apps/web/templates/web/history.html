@@ -1,0 +1,91 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}Historial · {{ project.name }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span><a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><span>Historial</span></nav>
+
+<div class="page-head">
+  <div class="title">
+    <h1>Historial del repositorio</h1>
+    <div class="meta">
+      {% if project.github_repo %}<a href="https://github.com/{{ project.github_repo }}" target="_blank" rel="noopener" class="mono">{{ project.github_repo }}</a>{% else %}<span>Sin repositorio vinculado</span>{% endif %}
+      <span>{{ total }} commit{{ total|pluralize }} · {{ pulls|length }} pull request{{ pulls|length|pluralize }}</span>
+    </div>
+  </div>
+  {% if can_sync %}
+  <form method="post" action="{% url 'web:project_history_sync' project.pk %}" class="actions no-print">{% csrf_token %}
+    <button type="submit" class="btn secondary">Sincronizar con GitHub</button>
+  </form>
+  {% endif %}
+</div>
+
+<section class="card flush">
+  <header><h2>Pull requests</h2><span class="muted small">Cada PR que menciona <code>#D&lt;id&gt;</code> en el título, la descripción o la rama queda vinculado a ese entregable.</span></header>
+  {% if pulls %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>PR</th><th>Autor</th><th>Rama</th><th>Estado</th><th>Entregable</th><th>Revisión</th></tr></thead>
+    <tbody>
+    {% for pr in shown_pulls %}
+      <tr>
+        <td><a href="{{ pr.url }}" target="_blank" rel="noopener"><span class="mono">#{{ pr.number }}</span> {{ pr.title|truncatechars:60 }}</a></td>
+        <td>{% if pr.author %}<span class="person"><span class="avatar sm">{{ pr.author|initials }}</span>{{ pr.author.get_full_name|default:pr.author.username }}</span>{% else %}<span class="muted">{{ pr.author_login|default:"—" }}</span>{% endif %}</td>
+        <td class="mono small nowrap" title="{{ pr.head_ref }} → {{ pr.base_ref }}">{{ pr.head_ref|truncatechars:26 }} → {{ pr.base_ref }}</td>
+        <td><span class="badge pr-{{ pr.state }}">{{ pr.get_state_display }}</span>{% if pr.draft %} <span class="badge">Borrador</span>{% endif %}</td>
+        <td>{% if pr.deliverable %}<a href="{% url 'web:deliverable' pr.deliverable_id %}"><span class="mono">#D{{ pr.deliverable_id }}</span> {{ pr.deliverable.title|truncatechars:28 }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if pr.is_submission %}{% with st=pr.deliverable.status %}
+          {% if st == "approved" %}<span class="badge status-approved">Completo</span>
+          {% elif st == "rejected" %}<span class="badge status-rejected">No completo</span>
+          {% elif st == "submitted" or st == "late" or st == "in_review" %}{% if can_review %}<a href="{% url 'web:deliverable' pr.deliverable_id %}#evaluar" class="btn secondary sm">Revisar</a>{% else %}<span class="badge status-{{ st }}">Por revisar</span>{% endif %}
+          {% else %}<span class="badge status-{{ st }}">{{ pr.deliverable.get_status_display }}</span>{% endif %}
+        {% endwith %}{% elif pr.deliverable %}<span class="muted small">No es la entrega</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if shown_pulls|length < pulls|length %}<p class="empty small no-print"><a href="?prs=todos">Ver los {{ pulls|length }} pull requests</a></p>{% endif %}
+  {% else %}<p class="empty">Aún no hay pull requests. Llegan con el webhook de GitHub (evento «Pull requests») o con «Sincronizar con GitHub».</p>{% endif %}
+</section>
+
+<section class="card flush">
+  <header>
+    <h2>Commits y ramas</h2>
+    <form method="get" class="filters no-print">
+      <div class="field">{{ form.author.label_tag }}{{ form.author }}</div>
+      <div class="field">{{ form.branch.label_tag }}{{ form.branch }}</div>
+      <label class="check">{{ form.linked }} {{ form.linked.label }}</label>
+      <input type="hidden" name="n" value="{{ size }}">
+      <button type="submit" class="btn secondary">Filtrar</button>
+      {% if filtered %}<a href="?n={{ size }}" class="small">Quitar filtros</a>{% endif %}
+    </form>
+  </header>
+  {% if graph.rows %}
+  {% if filtered %}<p class="small muted" style="padding: 0 24px">{{ matches }} de {{ graph.rows|length }} commits coinciden; el resto se ve atenuado para no cortar el grafo.</p>{% endif %}
+  <div class="graph-wrap">
+    <div class="graph" style="--graph-w: {{ graph.width }}px; --row-h: {{ graph.row_h }}px">
+      <svg class="graph-svg" width="{{ graph.width }}" height="{{ graph.height }}" viewBox="0 0 {{ graph.width }} {{ graph.height }}" aria-hidden="true">
+        {% for e in graph.edges %}<path d="{{ e.d }}" stroke="{{ e.color }}" />{% endfor %}
+        {% for n in graph.nodes %}<circle cx="{{ n.x }}" cy="{{ n.y }}" r="{% if n.merge %}4{% else %}6{% endif %}" fill="{% if n.merge %}#FFF{% else %}{{ n.color }}{% endif %}" stroke="{{ n.color }}" stroke-width="{% if n.merge %}3{% else %}2{% endif %}"{% if n.dim %} opacity=".3"{% endif %} />{% endfor %}
+      </svg>
+      <ol class="graph-rows">
+        {% for row in graph.rows %}{% with c=row.commit %}
+        <li class="{% if row.dim %}dim{% endif %}">
+          <span class="msg">
+            {% if row.branch %}<span class="tag branch" style="--c: {{ row.color }}">{{ row.branch }}</span>{% endif %}
+            {% for pr in row.pulls %}<a href="{{ pr.url }}" target="_blank" rel="noopener" class="tag pr-{{ pr.state }}">PR #{{ pr.number }}</a>{% endfor %}
+            <span class="text" title="{{ c.message }}">{{ c.message|truncatechars:90 }}</span>
+            {% if c.deliverable_id %}<a href="{% url 'web:deliverable' c.deliverable_id %}" class="tag deliverable">#D{{ c.deliverable_id }}</a>{% endif %}
+          </span>
+          <span class="who">{% if c.author %}<span class="avatar sm" title="{{ c.author.get_full_name|default:c.author.username }}">{{ c.author|initials }}</span><span class="name">{{ c.author.get_full_name|default:c.author.username }}</span>{% else %}<span class="avatar sm ghost" title="Sin vincular a un integrante">?</span><span class="name muted">{{ c.author_name|default:c.github_username|default:"—" }}</span>{% endif %}</span>
+          {% if c.url %}<a href="{{ c.url }}" target="_blank" rel="noopener" class="sha mono">{{ c.sha|slice:":7" }}</a>{% else %}<span class="sha mono">{{ c.sha|slice:":7" }}</span>{% endif %}
+          <span class="when">{{ c.committed_at|date:"d M · H:i" }}</span>
+        </li>
+        {% endwith %}{% endfor %}
+      </ol>
+    </div>
+  </div>
+  <p class="empty small no-print">Mostrando los {{ graph.rows|length }} commits más recientes{% if total > graph.rows|length %} de {{ total }}{% endif %}.
+    {% for n in sizes %}{% if n != size %} <a href="?{% if request.GET.author %}author={{ request.GET.author }}&amp;{% endif %}{% if request.GET.branch %}branch={{ request.GET.branch|urlencode }}&amp;{% endif %}{% if request.GET.linked %}linked=on&amp;{% endif %}n={{ n }}">Ver {{ n }}</a>{% endif %}{% endfor %}
+  </p>
+  {% else %}<p class="empty">Todavía no hay commits. Se cargan con el webhook o con «Sincronizar con GitHub».</p>{% endif %}
+</section>
+{% endblock %}

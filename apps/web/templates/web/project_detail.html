@@ -14,6 +14,7 @@
     </div>
   </div>
   <div class="actions no-print">
+    <a href="{% url 'web:project_history' project.pk %}" class="btn secondary">Historial</a>
     <a href="{% url 'reports:project' project.pk %}" class="btn secondary">Reporte</a>
     {% if can_review %}<a href="{% url 'web:project_audit' project.pk %}" class="btn secondary">Auditoría</a>{% endif %}
   </div>
@@ -27,6 +28,7 @@
   <div class="kpi"><strong>{{ d.average_score|default_if_none:"—" }}</strong><span>Nota promedio</span></div>
   <div class="kpi{% if d.overdue %} warn{% endif %}"><strong>{{ d.overdue }}</strong><span>Vencidos sin entregar</span></div>
   <div class="kpi"><strong>{{ c.last_30_days }}</strong><span>Commits (30 días)</span></div>
+  <div class="kpi"><strong>{{ metrics.pull_requests.total }}</strong><span>Pull requests ({{ metrics.pull_requests.open }} abiertos)</span></div>
 </section>
 {% endwith %}
 
@@ -109,7 +111,7 @@
 <section class="card flush">
   <header><h2>Métricas por integrante</h2><a href="{% url 'reports:members_csv' project.pk %}" class="small">Descargar CSV</a></header>
   <div class="table-wrap"><table>
-    <thead><tr><th>Integrante</th><th>Rol</th><th>Asignados</th><th>Entregados</th><th>Tarde</th><th>A tiempo</th><th>Aprobados</th><th>Nota prom.</th><th>Versiones</th><th>Commits</th></tr></thead>
+    <thead><tr><th>Integrante</th><th>Rol</th><th>Asignados</th><th>Entregados</th><th>Tarde</th><th>A tiempo</th><th>Aprobados</th><th>Nota prom.</th><th>Versiones</th><th>Commits</th><th>PR</th></tr></thead>
     <tbody>
     {% for m in metrics.members %}
       <tr>
@@ -123,6 +125,7 @@
         <td>{{ m.average_score|default_if_none:"—" }}</td>
         <td>{{ m.versions }}</td>
         <td>{{ m.commits }}</td>
+        <td>{{ m.pull_requests }}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -146,7 +149,20 @@
     </ul>
   </div>
   <div class="card">
-    <header><h2>Actividad en GitHub</h2>{% if project.github_repo %}<a href="https://github.com/{{ project.github_repo }}/commits" target="_blank" rel="noopener" class="small">Ver en GitHub</a>{% endif %}</header>
+    <header><h2>Actividad en GitHub</h2><a href="{% url 'web:project_history' project.pk %}" class="small">Ver historial completo</a></header>
+    {% if pulls %}
+    <ul class="feed">
+      {% for pr in pulls %}
+      <li>
+        <div class="stack" style="gap: 2px; min-width: 0">
+          <span><a href="{{ pr.url }}" target="_blank" rel="noopener"><span class="mono">PR #{{ pr.number }}</span> {{ pr.title|truncatechars:55 }}</a>{% if pr.deliverable_id %} <a href="{% url 'web:deliverable' pr.deliverable_id %}" class="mono">#D{{ pr.deliverable_id }}</a>{% endif %}</span>
+          <span class="muted small">{% if pr.author %}{{ pr.author.get_full_name|default:pr.author.username }}{% else %}{{ pr.author_login }}{% endif %} · <span class="mono">{{ pr.head_ref }}</span></span>
+        </div>
+        <span class="when"><span class="badge pr-{{ pr.state }}">{{ pr.get_state_display }}</span></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if commits %}
     <ul class="feed">
       {% for c in commits %}

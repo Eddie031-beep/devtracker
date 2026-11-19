@@ -1,3 +1,5 @@
+from urllib.error import HTTPError, URLError
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
@@ -17,15 +19,19 @@ from apps.audit.services import diff, log_action, snapshot
 from apps.evaluations.services import EVALUABLE_STATES, evaluate_deliverable
 from apps.integrations.models import Commit
 from apps.integrations.services import link_user_commits
+from apps.integrations.tasks import sync_project_commits
 from apps.metrics.services import project_metrics
 from apps.notifications.models import Notification
-from apps.projects.models import Deliverable, Milestone, Project, ProjectMembership
+from apps.projects.models import Deliverable, DeliverableVersion, Milestone, Project, ProjectMembership
 from apps.projects.permissions import filter_deliverables_for_user, filter_projects_for_user, is_global_admin
 from apps.projects.services import SUBMITTABLE_STATES, can_review, submit_deliverable
 from apps.projects.services_members import can_manage_members, set_deliverable_assignees
 
 from . import oauth
-from .forms import AuditFilterForm, DeliverableForm, EvaluateForm, MilestoneForm, ProfileForm, SubmitForm
+from .forms import (
+    AuditFilterForm, DeliverableForm, EvaluateForm, HistoryFilterForm, MilestoneForm, ProfileForm, SubmitForm,
+)
+from .history import build_graph
 
 User = get_user_model()
 Status = Deliverable.Status
@@ -188,6 +194,7 @@ def project_detail(request, pk):
             "milestones": milestones,
             "memberships": memberships,
             "commits": Commit.objects.filter(project=project).select_related("author", "deliverable")[:8],
+            "pulls": project.pull_requests.select_related("author", "deliverable")[:6],
             "chart": chart,
             "can_review": can_review(request.user, project),
             "can_manage": can_manage,
@@ -285,6 +292,91 @@ def project_audit(request, pk):
     )
 
 
+HISTORY_SIZES = (100, 250, 500)
+
+
+@login_required
+def project_history(request, pk):
+    """Historial del repo como en GitKraken (simple): grafo de ramas, PR y entregables vinculados."""
+    project = _get_project(request, pk)
+    size = request.GET.get("n", "")
+    size = int(size) if size.isdigit() and int(size) in HISTORY_SIZES else HISTORY_SIZES[0]
+    commits = list(
+        Commit.objects.filter(project=project).select_related("author", "deliverable").order_by("-committed_at")[:size]
+    )
+    pulls = list(project.pull_requests.select_related("author", "deliverable"))
+    # Solo el PR que quedó como versión entregada se revisa; los demás que mencionan el entregable son referencia
+    delivered_urls = set(
+        DeliverableVersion.objects.filter(deliverable__milestone__project=project).values_list("url", flat=True)
+    )
+    for pr in pulls:
+        pr.is_submission = pr.deliverable_id is not None and pr.url in delivered_urls
+    authors = User.objects.filter(commits__project=project).order_by("first_name", "username").distinct()
+    branches = sorted({c.branch for c in commits if c.branch})
+    form = HistoryFilterForm(request.GET or None, authors=authors, branches=branches)
+
+    highlight = None
+    if form.is_valid() and any(form.cleaned_data.values()):
+        data = form.cleaned_data
+
+        def highlight(commit):
+            return (
+                (not data["author"] or commit.author_id == data["author"].pk)
+                and (not data["branch"] or commit.branch == data["branch"])
+                and (not data["linked"] or commit.deliverable_id is not None)
+            )
+
+    graph = build_graph(commits, pulls, highlight)
+    return render(
+        request,
+        "web/history.html",
+        {
+            "project": project,
+            "graph": graph,
+            "pulls": pulls,
+            # Primero los que esperan revisión; el resto, del más nuevo al más viejo
+            "shown_pulls": pulls if request.GET.get("prs") == "todos" else sorted(
+                pulls, key=lambda pr: (pr.state != pr.State.OPEN, -pr.number)
+            )[:8],
+            "form": form,
+            "filtered": highlight is not None,
+            "matches": sum(1 for row in graph["rows"] if not row["dim"]),
+            "size": size,
+            "sizes": HISTORY_SIZES,
+            "total": Commit.objects.filter(project=project).count(),
+            "can_sync": can_manage_members(request.user, project) and bool(project.github_repo),
+            "can_review": can_review(request.user, project),
+            "nav": "home",
+        },
+    )
+
+
+@login_required
+@require_POST
+def project_history_sync(request, pk):
+    """El líder trae de GitHub commits, ramas y PR desde la web (sin entrar a la API)."""
+    project = _get_project(request, pk)
+    if not can_manage_members(request.user, project):
+        raise PermissionDenied("Solo el líder del proyecto puede sincronizar con GitHub.")
+    if not project.github_repo:
+        messages.error(request, "El proyecto no tiene un repositorio de GitHub vinculado.")
+        return redirect("web:project_history", pk=pk)
+    try:
+        # Directo, sin Celery: en Railway no hay worker
+        result = sync_project_commits(project.pk)
+    except HTTPError as error:
+        messages.error(request, f"GitHub respondió {error.code}. Si es 403, se alcanzó el límite de la API: prueba en un rato.")
+    except URLError:
+        messages.error(request, "No se pudo conectar con GitHub.")
+    else:
+        messages.success(
+            request,
+            f"Sincronizado: {result['created']} commits nuevos, {result['pull_requests']} PR nuevos, "
+            f"{result['linked']} vinculados.",
+        )
+    return redirect("web:project_history", pk=pk)
+
+
 def _get_deliverable(request, pk):
     queryset = filter_deliverables_for_user(Deliverable.objects.select_related("milestone__project"), request.user)
     return get_object_or_404(queryset, pk=pk)
@@ -327,6 +419,7 @@ def deliverable_detail(request, pk):
             "versions": versions,
             "evaluations": evaluations,
             "commits": deliverable.commits.select_related("author")[:20],
+            "pulls": deliverable.pull_requests.select_related("author"),
             "history": history,
             "labels": dict(Action.choices),
             "flow": flow,
