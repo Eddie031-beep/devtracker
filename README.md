@@ -324,6 +324,9 @@ fecha de un entregable no le quita la marca de «tarde».
 
 ### Recuperar contraseña
 
+Los enlaces del correo y del calendario usan `SITE_URL` (en Railway se toma solo del dominio público; en
+local es `http://localhost:8000`, cámbiala en `.env` si usas otro puerto).
+
 En el login, **¿Olvidaste tu contraseña?** (`/recuperar/`) manda un enlace de un solo uso al correo de la
 cuenta; la respuesta es la misma exista o no el correo. Con el `EMAIL_BACKEND` por defecto (consola) el
 correo sale en los logs del servidor (en Railway: *Deploy Logs*). Para correo real:

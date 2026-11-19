@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models.functions import Lower
@@ -8,6 +8,13 @@ github_username_validator = RegexValidator(
     r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$",
     "Usuario de GitHub inválido (letras, números y guiones simples, máx. 39 caracteres).",
 )
+
+
+class DevTrackerUserManager(UserManager):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        # `createsuperuser` deja al usuario como Administrador también en el rol global (no «Estudiante»)
+        extra_fields.setdefault("global_role", User.GlobalRole.ADMIN)
+        return super().create_superuser(username, email, password, **extra_fields)
 
 
 class User(AbstractUser):
@@ -22,6 +29,8 @@ class User(AbstractUser):
     global_role = models.CharField(max_length=20, choices=GlobalRole.choices, default=GlobalRole.STUDENT)
     # Integración GitHub (#21): sirve para saber qué integrante hizo cada commit
     github_username = models.CharField(max_length=39, blank=True, validators=[github_username_validator])
+
+    objects = DevTrackerUserManager()
 
     class Meta(AbstractUser.Meta):
         constraints = [

@@ -46,7 +46,7 @@ LIVE = {"milestone__deleted_at__isnull": True, "milestone__project__deleted_at__
 # Nombre en español del objeto auditado (AuditLog.target_type es el nombre del modelo)
 TARGET_LABELS = {
     "project": "Proyecto", "milestone": "Hito", "deliverable": "Entregable", "projectmembership": "Integrante",
-    "deliverableversion": "Versión", "evaluation": "Evaluación",
+    "deliverableversion": "Versión", "evaluation": "Evaluación", "user": "Integrante",
 }
 
 
@@ -279,6 +279,9 @@ def project_audit(request, pk):
         if data["date_to"]:
             logs = logs.filter(created_at__date__lte=data["date_to"])
     page = Paginator(logs, 25).get_page(request.GET.get("page"))
+    # Los cambios de integrantes apuntan al usuario: se muestra su nombre, no solo el id
+    user_ids = {log.target_id for log in page.object_list if log.target_type == "user"}
+    user_names = {u.pk: u.get_full_name() or u.username for u in User.objects.filter(pk__in=user_ids)}
     query = request.GET.copy()
     query.pop("page", None)
     return render(
@@ -290,6 +293,7 @@ def project_audit(request, pk):
             "page": page,
             "labels": dict(Action.choices),
             "targets": TARGET_LABELS,
+            "user_names": user_names,
             "query": query.urlencode(),
             "nav": "home",
         },
