@@ -1,12 +1,17 @@
+import datetime
 import json
 
 from django.core.serializers.json import DjangoJSONEncoder
+from django.utils import timezone
 
 from .models import Action, AuditLog
 
 
 def _json_safe(value):
     """Convierte fechas, decimales, etc. a algo que JSON entienda (y que se compare igual antes/después)."""
+    # La misma hora en otra zona (UTC de la base vs. hora local del formulario) no es un cambio
+    if isinstance(value, datetime.datetime) and timezone.is_aware(value):
+        value = value.astimezone(datetime.timezone.utc)
     return json.loads(json.dumps(value, cls=DjangoJSONEncoder))
 
 

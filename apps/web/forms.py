@@ -120,7 +120,10 @@ class ProjectForm(NoColonMixin, forms.ModelForm):
 
 class MemberAddForm(NoColonMixin, forms.Form):
     user = forms.ModelChoiceField(label="Usuario", queryset=None, empty_label="Elige un usuario")
-    role = forms.ChoiceField(label="Rol en el proyecto", choices=ProjectMembership.ProjectRole.choices)
+    role = forms.ChoiceField(
+        label="Rol en el proyecto", choices=ProjectMembership.ProjectRole.choices,
+        initial=ProjectMembership.ProjectRole.MEMBER,
+    )
     responsibilities = forms.CharField(label="Responsabilidades", required=False, max_length=500)
 
     def __init__(self, *args, project, **kwargs):

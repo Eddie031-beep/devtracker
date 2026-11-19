@@ -38,7 +38,7 @@
         <td class="muted" style="white-space: nowrap">{{ log.created_at|date:"d M · H:i" }}</td>
         <td><strong>{% if log.actor %}{{ log.actor.get_full_name|default:log.actor.username }}{% else %}Sistema{% endif %}</strong></td>
         <td>{{ labels|get_item:log.action|default:log.action }}</td>
-        <td>{% if log.target_type == "deliverable" %}<a href="{% url 'web:deliverable' log.target_id %}" class="mono">#D{{ log.target_id }}</a>{% else %}{{ targets|get_item:log.target_type|default:log.target_type }}{% if log.target_id %} <span class="mono">#{{ log.target_id }}</span>{% endif %}{% endif %}</td>
+        <td>{% if log.target_type == "deliverable" %}<a href="{% url 'web:deliverable' log.target_id %}" class="mono">#D{{ log.target_id }}</a>{% elif log.target_type == "user" %}{{ targets.user }} · {{ user_names|get_item:log.target_id|default:"(usuario eliminado)" }}{% else %}{{ targets|get_item:log.target_type|default:log.target_type }}{% if log.target_id %} <span class="mono">#{{ log.target_id }}</span>{% endif %}{% endif %}</td>
         <td class="mono" style="color: var(--ink-2)">{% for field, change in log.changes.items %}{{ field }}: {{ change.before|default_if_none:"—" }} → {{ change.after|default_if_none:"—" }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
       </tr>
     {% endfor %}
