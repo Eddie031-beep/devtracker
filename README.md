@@ -304,8 +304,43 @@ Desde la página del proyecto, sección **Reportes** (mismos permisos que el pro
 
 - **Reporte imprimible** (`/proyectos/<id>/reporte/`): resumen, desempeño por integrante y entregables;
   el botón *Imprimir / guardar como PDF* lo exporta.
+- **Excel** (`devtracker.xlsx`): un libro con las hojas *Entregables*, *Integrantes* y, si quien descarga
+  puede verla, *Auditoría*. Se genera sin dependencias extra y los textos nunca se interpretan como fórmulas.
 - **CSV** (se abren en Excel): `entregables.csv`, `integrantes.csv` y `auditoria.csv` (este último solo
   para líder, evaluador del proyecto o admin; integrante → 403).
+
+### Administración desde la web (sin entrar a la API)
+
+| Página | Quién | Qué hace |
+|---|---|---|
+| Inicio → **Nuevo proyecto** | Líder o admin | Crea el proyecto; quien lo crea queda como líder |
+| Proyecto → **Editar** | Líder o admin | Nombre, fechas, repo de GitHub; **genera el secreto del webhook** y muestra la Payload URL (una sola vez) |
+| Proyecto → **Integrantes** | Líder o admin | Agregar usuario con rol y responsabilidades, cambiar rol, quitar (no deja quitar al único líder) |
+| Hito → **Editar hito** / Entregable → **Editar** | Líder o admin | Editar, reasignar o **eliminar** (lógico) |
+
+Todo pasa por las mismas reglas que la API: integrante → 403, proyecto ajeno → 404, cada cambio queda en la
+auditoría y eliminar solo marca `deleted_at` (versiones, evaluaciones y auditoría se conservan). Cambiar la
+fecha de un entregable no le quita la marca de «tarde».
+
+### Recuperar contraseña
+
+En el login, **¿Olvidaste tu contraseña?** (`/recuperar/`) manda un enlace de un solo uso al correo de la
+cuenta; la respuesta es la misma exista o no el correo. Con el `EMAIL_BACKEND` por defecto (consola) el
+correo sale en los logs del servidor (en Railway: *Deploy Logs*). Para correo real:
+`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST=smtp.gmail.com`,
+`EMAIL_HOST_USER` y `EMAIL_HOST_PASSWORD` (contraseña de aplicación de Google).
+
+### Modo oscuro, calendario y Gemini (Could Have)
+
+- **Modo oscuro**: botón en el menú lateral; se recuerda en el navegador y, si no se eligió, sigue el tema
+  del sistema operativo. Al imprimir siempre sale en claro.
+- **Calendario iCal**: en *Mi perfil* está el enlace personal para suscribirse desde Google Calendar
+  (*Otros calendarios → Desde URL*) o el botón *Descargar .ics*. Incluye los entregables asignados (o todos
+  los del proyecto si eres líder o evaluador), los cierres de hito y un aviso un día antes.
+- **Sugerencias con Gemini**: con `GEMINI_API_KEY` (y opcional `GEMINI_MODEL`, por defecto
+  `gemini-2.5-flash`), el líder o evaluador ve en el entregable *Pedir sugerencias*: Gemini lee el texto
+  del PR y los mensajes de los commits y resume qué cambia, qué podría faltar y qué revisar. No pone notas:
+  aprobar o rechazar lo sigue decidiendo una persona. Sin la clave, no aparece.
 
 ### Iniciar sesión con GitHub (OAuth2) y perfil
 
@@ -321,6 +356,30 @@ Reglas generales: proyecto ajeno → **404**, sin permiso → **403**, datos o t
 El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
+
+## Cobertura del MoSCoW (Laboratorio 3)
+
+| # | Requisito | Prioridad | Dónde se ve |
+|---|---|---|---|
+| 1 | Autenticación, recuperación de contraseña y RBAC global | Must | Login, `/recuperar/`, roles globales |
+| 2 | Permisos a nivel de proyecto | Must | Proyecto ajeno → 404 en web y API |
+| 3 | CRUD de proyectos, hitos y entregables (borrado lógico) | Must | Nuevo proyecto, Editar, Editar hito, Editar entregable |
+| 4 | Integrantes y responsabilidades | Must | Proyecto → Integrantes |
+| 5 | Flujo de estados (tarde automático) | Must | Entregable → Flujo de estados |
+| 6 | Historial de versiones (append-only, sin diff) | Must | Entregable → Versiones entregadas |
+| 7 | Auditoría inmutable | Must | Proyecto → Auditoría |
+| 8 | GitHub (webhook idempotente de push y PR, sincronización) | Must | Proyecto → Historial |
+| 9 | Métricas (commits, PR, entregas, participación) | Must | Proyecto → Métricas por integrante |
+| 10 | Dashboard por rol | Must | Inicio |
+| 11 | Evaluación y retroalimentación | Must | Entregable → Aprobar / Rechazar |
+| 12 | Notificaciones internas y correo | Should | Avisos |
+| 13 | Reportes PDF / Excel | Should | Proyecto → Reportes |
+| 14 | OAuth2 con GitHub | Should | Login → Entrar con GitHub |
+| 15 | API documentada | Could | `/api/docs/` |
+| 16 | Sugerencias con Gemini | Could | Entregable (con `GEMINI_API_KEY`) |
+| 17 | Modo oscuro | Could | Menú lateral |
+| 18 | Calendario iCal | Could | Mi perfil |
+| 19–20 | App móvil, pagos | Won't (por ahora) | — |
 
 ## Despliegue (Railway, staging)
 

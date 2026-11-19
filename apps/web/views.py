@@ -1,5 +1,6 @@
 from urllib.error import HTTPError, URLError
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
@@ -10,6 +11,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -17,6 +19,7 @@ from django.views.decorators.http import require_POST
 from apps.audit.models import Action, AuditLog
 from apps.audit.services import diff, log_action, snapshot
 from apps.evaluations.services import EVALUABLE_STATES, evaluate_deliverable
+from apps.integrations.gemini import GeminiError, gemini_enabled, suggest_for_deliverable
 from apps.integrations.models import Commit
 from apps.integrations.services import link_user_commits
 from apps.integrations.tasks import sync_project_commits
@@ -32,6 +35,7 @@ from .forms import (
     AuditFilterForm, DeliverableForm, EvaluateForm, HistoryFilterForm, MilestoneForm, ProfileForm, SubmitForm,
 )
 from .history import build_graph
+from .ical import feed_url
 
 User = get_user_model()
 Status = Deliverable.Status
@@ -426,12 +430,29 @@ def deliverable_detail(request, pk):
             "can_submit": is_assignee and status in SUBMITTABLE_STATES,
             "can_evaluate": reviewer and status in EVALUABLE_STATES,
             "can_review": reviewer,
+            "can_manage": can_manage_members(request.user, project),
+            "gemini": reviewer and gemini_enabled(),
+            "gemini_text": request.session.pop(f"gemini-{deliverable.pk}", None),
             "next_version": len(versions) + 1,
             "submit_form": SubmitForm(),
             "evaluate_form": EvaluateForm(),
             "nav": "home",
         },
     )
+
+
+@login_required
+@require_POST
+def deliverable_gemini(request, pk):
+    """El revisor pide a Gemini un resumen del PR y los commits; se muestra una vez en la página."""
+    deliverable = _get_deliverable(request, pk)
+    if not can_review(request.user, deliverable.project) or not gemini_enabled():
+        raise PermissionDenied("Solo el líder o el evaluador del proyecto puede pedir sugerencias.")
+    try:
+        request.session[f"gemini-{deliverable.pk}"] = suggest_for_deliverable(deliverable)
+    except GeminiError as error:
+        messages.error(request, str(error))
+    return redirect("web:deliverable", pk=pk)
 
 
 def _run(request, action, success):
@@ -507,6 +528,19 @@ class LoginView(auth_views.LoginView):
         return {**super().get_context_data(**kwargs), "github_oauth": oauth.is_configured()}
 
 
+class PasswordResetView(auth_views.PasswordResetView):
+    """«¿Olvidaste tu contraseña?»: manda el enlace con el dominio público (SITE_URL), no el del proxy."""
+
+    template_name = "web/password_reset.html"
+    email_template_name = "web/password_reset_email.txt"
+    subject_template_name = "web/password_reset_subject.txt"
+    success_url = reverse_lazy("web:password_reset_done")
+
+    def form_valid(self, form):
+        self.extra_email_context = {"site_url": settings.SITE_URL.rstrip("/")}
+        return super().form_valid(form)
+
+
 @login_required
 def profile(request):
     previous = request.user.github_username
@@ -518,4 +552,6 @@ def profile(request):
             link_user_commits(user)
         messages.success(request, "Perfil actualizado.")
         return redirect("web:profile")
-    return render(request, "web/profile.html", {"form": form, "nav": "profile"})
+    return render(
+        request, "web/profile.html", {"form": form, "calendar_url": feed_url(request.user), "nav": "profile"}
+    )

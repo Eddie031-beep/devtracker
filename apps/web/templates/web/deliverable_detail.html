@@ -22,6 +22,7 @@
       <span>Entregado {{ deliverable.submitted_at|date:"d M Y · H:i"|default:"todavía no" }}</span>
     </div>
   </div>
+  {% if can_manage %}<div class="actions no-print"><a href="{% url 'web:deliverable_edit' deliverable.pk %}" class="btn secondary">Editar</a></div>{% endif %}
 </div>
 
 <div class="layout-side">
@@ -110,6 +111,19 @@
       <ol class="flow">{% for step in flow %}<li class="{{ step.state }}">{{ step.label }}{% if step.state == "current" %} (actual){% endif %}</li>{% endfor %}</ol>
       {% if deliverable.status == "rejected" %}<p class="small" style="margin-top: 10px">Fue rechazado: el asignado puede entregar una nueva versión.</p>{% endif %}
     </section>
+
+    {% if gemini %}
+    <section class="card">
+      <header><h2>Sugerencias de Gemini</h2></header>
+      {% if gemini_text %}
+      <div class="small" style="white-space: pre-wrap">{{ gemini_text }}</div>
+      <p class="small muted" style="margin-top: 10px">Orientativo, a partir del texto del PR y de los commits. La decisión la toma el revisor.</p>
+      {% else %}
+      <p class="small muted">Resume qué cambia el PR, qué podría faltar y qué revisar antes de aprobar.</p>
+      <form method="post" action="{% url 'web:deliverable_gemini' deliverable.pk %}">{% csrf_token %}<button type="submit" class="btn secondary">Pedir sugerencias</button></form>
+      {% endif %}
+    </section>
+    {% endif %}
 
     <section class="card">
       <header><h2>Pull requests</h2></header>

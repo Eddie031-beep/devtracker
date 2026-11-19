@@ -7,6 +7,7 @@
     <h1>Hola, {{ user.first_name|default:user.username }}</h1>
     <p class="muted">Panel de {{ user.get_global_role_display|lower }}{% if role == "leader" %} · líder de proyecto{% endif %}</p>
   </div>
+  {% if role == "admin" or role == "leader" %}<div class="actions"><a href="{% url 'web:project_create' %}" class="btn">Nuevo proyecto</a></div>{% endif %}
 </div>
 
 <section class="grid kpis" aria-label="Resumen">
@@ -96,6 +97,9 @@
 <script src="{% static 'web/vendor/chart-4.4.4.umd.min.js' %}"></script>
 <script>
   Chart.defaults.font.family = "'IBM Plex Sans', system-ui, sans-serif";
+  const css = getComputedStyle(document.documentElement);
+  Chart.defaults.color = css.getPropertyValue("--ink-2").trim() || "#4A5160";
+  Chart.defaults.borderColor = css.getPropertyValue("--line").trim() || "#E1E4EA";
   const data = JSON.parse(document.getElementById("overview-data").textContent);
   new Chart(document.getElementById("overview-chart"), {
     type: "bar",

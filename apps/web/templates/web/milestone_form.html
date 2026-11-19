@@ -1,0 +1,19 @@
+{% extends "web/base.html" %}
+{% block title %}Editar hito{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span><a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><span>{{ milestone.title }}</span></nav>
+<div class="page-head"><div class="title"><h1>Editar hito</h1></div></div>
+<section class="grid two">
+  <form method="post" class="card">{% csrf_token %}
+    {% for f in form %}<div class="field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<p class="small overdue">{{ e }}</p>{% endfor %}</div>{% endfor %}
+    <div class="actions"><button type="submit" class="btn">Guardar cambios</button><a href="{% url 'web:project' project.pk %}" class="btn secondary">Cancelar</a></div>
+  </form>
+  <section class="card danger-zone">
+    <header><h2>Eliminar hito</h2></header>
+    <p class="small muted">Se ocultan el hito y sus {{ milestone.deliverables.count }} entregable{{ milestone.deliverables.count|pluralize }}; las versiones y evaluaciones quedan guardadas.</p>
+    <form method="post" action="{% url 'web:milestone_delete' milestone.pk %}" onsubmit="return confirm('¿Eliminar el hito «{{ milestone.title|escapejs }}»?')">{% csrf_token %}
+      <button type="submit" class="btn danger">Eliminar hito</button>
+    </form>
+  </section>
+</section>
+{% endblock %}

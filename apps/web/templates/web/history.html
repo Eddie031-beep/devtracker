@@ -64,7 +64,7 @@
     <div class="graph" style="--graph-w: {{ graph.width }}px; --row-h: {{ graph.row_h }}px">
       <svg class="graph-svg" width="{{ graph.width }}" height="{{ graph.height }}" viewBox="0 0 {{ graph.width }} {{ graph.height }}" aria-hidden="true">
         {% for e in graph.edges %}<path d="{{ e.d }}" stroke="{{ e.color }}" />{% endfor %}
-        {% for n in graph.nodes %}<circle cx="{{ n.x }}" cy="{{ n.y }}" r="{% if n.merge %}4{% else %}6{% endif %}" fill="{% if n.merge %}#FFF{% else %}{{ n.color }}{% endif %}" stroke="{{ n.color }}" stroke-width="{% if n.merge %}3{% else %}2{% endif %}"{% if n.dim %} opacity=".3"{% endif %} />{% endfor %}
+        {% for n in graph.nodes %}<circle{% if n.merge %} class="merge"{% endif %} cx="{{ n.x }}" cy="{{ n.y }}" r="{% if n.merge %}4{% else %}6{% endif %}" fill="{{ n.color }}" stroke="{{ n.color }}" stroke-width="{% if n.merge %}3{% else %}2{% endif %}"{% if n.dim %} opacity=".3"{% endif %} />{% endfor %}
       </svg>
       <ol class="graph-rows">
         {% for row in graph.rows %}{% with c=row.commit %}

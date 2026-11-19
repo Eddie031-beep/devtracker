@@ -20,4 +20,10 @@
     <button type="submit" class="btn">Guardar</button>
   </form>
 </section>
+<section class="card" style="max-width: 560px">
+  <header><h2>Calendario de entregas</h2></header>
+  <p class="small muted">Tus fechas de entrega y los cierres de hito, con aviso un día antes. En Google Calendar: <strong>Otros calendarios → + → Desde URL</strong> y pega este enlace (se actualiza solo). Es personal: no lo compartas.</p>
+  <div class="field"><label for="calendar-url">Enlace para suscribirse</label><input id="calendar-url" type="text" readonly value="{{ calendar_url }}" onclick="this.select()"></div>
+  <a href="{% url 'web:calendar_download' %}" class="btn secondary">Descargar .ics</a>
+</section>
 {% endblock %}

@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import URLValidator
 
 from apps.evaluations.models import Evaluation
+from apps.projects.models import Project, ProjectMembership
 
 
 class NoColonMixin:
@@ -42,14 +43,14 @@ class ProfileForm(NoColonMixin, forms.ModelForm):
 class MilestoneForm(NoColonMixin, forms.Form):
     title = forms.CharField(label="Título del hito", max_length=200)
     description = forms.CharField(label="Descripción", required=False, widget=forms.Textarea(attrs={"rows": 2}))
-    due_date = forms.DateField(label="Fecha de cierre", widget=forms.DateInput(attrs={"type": "date"}))
+    due_date = forms.DateField(label="Fecha de cierre", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
 
 
 class DeliverableForm(NoColonMixin, forms.Form):
     milestone = forms.ModelChoiceField(label="Hito", queryset=None, empty_label="Elige un hito")
     title = forms.CharField(label="Título del entregable", max_length=200)
     description = forms.CharField(label="Qué hay que entregar", required=False, widget=forms.Textarea(attrs={"rows": 2}))
-    due_at = forms.DateTimeField(label="Fecha y hora de entrega", widget=forms.DateTimeInput(attrs={"type": "datetime-local"}))
+    due_at = forms.DateTimeField(label="Fecha y hora de entrega", widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"))
     assignees = forms.ModelMultipleChoiceField(
         label="Asignar a", queryset=None, required=False, widget=forms.CheckboxSelectMultiple
     )
@@ -88,3 +89,49 @@ class HistoryFilterForm(NoColonMixin, forms.Form):
         self.fields["author"].queryset = authors
         self.fields["author"].label_from_instance = lambda u: u.get_full_name() or u.username
         self.fields["branch"].choices = [("", "Todas"), *((b, b) for b in branches)]
+
+
+class ProjectForm(NoColonMixin, forms.ModelForm):
+    new_secret = forms.BooleanField(
+        label="Generar un secreto nuevo para el webhook de GitHub", required=False,
+        help_text="Se muestra una sola vez. Cópialo en GitHub → Settings → Webhooks → Secret.",
+    )
+
+    class Meta:
+        model = Project
+        fields = ["name", "description", "start_date", "end_date", "github_repo"]
+        labels = {
+            "name": "Nombre", "description": "Descripción", "start_date": "Inicio", "end_date": "Fin",
+            "github_repo": "Repositorio de GitHub (owner/repo)",
+        }
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "end_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "github_repo": forms.TextInput(attrs={"placeholder": "Eddie031-beep/devtracker"}),
+        }
+
+    def clean(self):
+        data = super().clean()
+        if data.get("start_date") and data.get("end_date") and data["end_date"] < data["start_date"]:
+            self.add_error("end_date", "El fin no puede ser antes del inicio.")
+        return data
+
+
+class MemberAddForm(NoColonMixin, forms.Form):
+    user = forms.ModelChoiceField(label="Usuario", queryset=None, empty_label="Elige un usuario")
+    role = forms.ChoiceField(label="Rol en el proyecto", choices=ProjectMembership.ProjectRole.choices)
+    responsibilities = forms.CharField(label="Responsabilidades", required=False, max_length=500)
+
+    def __init__(self, *args, project, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["user"].queryset = (
+            get_user_model().objects.filter(is_active=True).exclude(memberships__project=project)
+            .order_by("first_name", "username")
+        )
+        self.fields["user"].label_from_instance = lambda u: f"{u.get_full_name() or u.username} ({u.username})"
+
+
+class MemberEditForm(NoColonMixin, forms.Form):
+    role = forms.ChoiceField(label="Rol", choices=ProjectMembership.ProjectRole.choices)
+    responsibilities = forms.CharField(label="Responsabilidades", required=False, max_length=500)

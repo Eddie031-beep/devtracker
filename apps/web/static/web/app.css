@@ -211,6 +211,7 @@ label.check input { width: 18px; height: 18px; min-height: 0; }
 .graph { position: relative; min-width: 640px; }
 .graph-svg { position: absolute; top: 0; left: 0; }
 .graph-svg path { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.graph-svg circle.merge { fill: var(--card); }
 .graph-rows { list-style: none; margin: 0; padding: 0; }
 .graph-rows li { height: var(--row-h); display: flex; align-items: center; gap: 14px; padding: 0 20px 0 calc(var(--graph-w) + 4px); border-bottom: 1px solid var(--line-2); font-size: 14px; }
 .graph-rows li:hover { background: #F7F8FA; }
@@ -226,6 +227,71 @@ label.check input { width: 18px; height: 18px; min-height: 0; }
 .tag.branch { background: color-mix(in srgb, var(--c) 14%, #FFF); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 40%, #FFF); font-family: var(--mono); }
 .tag.deliverable { background: var(--accent-soft); color: #1F3FA8; font-family: var(--mono); }
 @media (max-width: 640px) { .graph-rows .who .name, .graph-rows .when { display: none; } .graph-rows .who { width: auto; } }
+
+/* ---------- Administración del líder ---------- */
+.danger-zone { border-color: #F2C4C9; align-self: start; }
+.danger-zone p { margin: 0 0 14px; }
+.secret-box { border-color: #E3B341; background: #FFFBEB; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0 0 16px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; word-break: break-all; }
+.inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inline-form select { width: auto; min-width: 130px; min-height: 36px; padding: 4px 8px; }
+.inline-form input { flex: 1; min-width: 180px; min-height: 36px; padding: 6px 10px; }
+.head-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ---------- Recuperar contraseña ---------- */
+.auth-card { width: 100%; max-width: 440px; padding: 36px; border-radius: 16px; display: flex; flex-direction: column; gap: 14px; }
+.brand-dark { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 18px; }
+.brand-dark:hover { text-decoration: none; color: var(--ink); }
+.brand-dark svg { width: 28px; height: 28px; stroke: var(--accent); }
+@media (max-width: 640px) { .auth-card { padding: 28px 20px; } }
+
+/* ---------- Modo oscuro (Could Have #17) ---------- */
+.nav .nav-button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--side-ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.nav .nav-button:hover { background: #1D2129; color: #FFF; }
+.theme-toggle .when-dark { display: none; }
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ink: #E6E9EF; --ink-2: #B5BCC8; --muted: #98A1B0; --bg: #0F1217; --card: #171B22;
+    --line: #2A303A; --line-2: #222730; --field: #3A414D;
+    --accent: #4F6DF0; --accent-dark: #3B58D6; --accent-soft: #1E2747;
+    --side: #0B0D11; --side-active: #1F242D;
+  }
+  [data-theme="dark"] a { color: #8FA6FF; }
+  [data-theme="dark"] a.btn, [data-theme="dark"] .nav a, [data-theme="dark"] .brand, [data-theme="dark"] .me a.who { color: inherit; }
+  [data-theme="dark"] .nav a { color: var(--side-ink); }
+  [data-theme="dark"] .nav a[aria-current="page"], [data-theme="dark"] .brand, [data-theme="dark"] .me a.who { color: #FFF; }
+  [data-theme="dark"] a.btn { color: #FFF; }
+  [data-theme="dark"] a.btn.secondary, [data-theme="dark"] .brand-dark { color: var(--ink); }
+  [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: #0F1217; color: var(--ink); }
+  [data-theme="dark"] .btn.secondary { background: var(--card); }
+  [data-theme="dark"] .btn.secondary:hover, [data-theme="dark"] .graph-rows li:hover { background: #1F242D; }
+  [data-theme="dark"] .btn.danger, [data-theme="dark"] a.btn.danger { background: var(--card); color: #F59AA4; border-color: #6B2A33; }
+  [data-theme="dark"] .btn.danger:hover { background: #3A1A1E; }
+  [data-theme="dark"] .badge, [data-theme="dark"] .status-pending, [data-theme="dark"] .role-member, [data-theme="dark"] .progress { background: #262B35; color: #C4CAD4; }
+  [data-theme="dark"] .status-submitted { background: #1B2A4A; color: #9DB8FF; }
+  [data-theme="dark"] .status-late, [data-theme="dark"] .badge.late { background: #3A2614; color: #F5B072; }
+  [data-theme="dark"] .status-in_review { background: #3A3212; color: #F0CF6A; }
+  [data-theme="dark"] .status-approved, [data-theme="dark"] .pr-open, [data-theme="dark"] .messages .success { background: #15301F; color: #7FD39C; }
+  [data-theme="dark"] .status-rejected, [data-theme="dark"] .pr-closed, [data-theme="dark"] .messages .error { background: #3A1A1E; color: #F59AA4; }
+  [data-theme="dark"] .role-leader, [data-theme="dark"] .notice, [data-theme="dark"] .messages .info, [data-theme="dark"] .tag.deliverable { background: var(--accent-soft); color: #AFC1FF; }
+  [data-theme="dark"] .role-evaluator, [data-theme="dark"] .pr-merged { background: #2C1F42; color: #CBA8F5; }
+  [data-theme="dark"] .overdue { color: #F38A8A; }
+  [data-theme="dark"] .avatars .avatar { border-color: var(--card); }
+  [data-theme="dark"] .avatar.ghost { background: #2E343F; color: #98A1B0; }
+  [data-theme="dark"] .version.current { background: #1A2035; border-color: #3B4E99; }
+  [data-theme="dark"] .version .verdict { background: #1F242D; }
+  [data-theme="dark"] .version .verdict.rejected { background: #2A1A1E; }
+  [data-theme="dark"] .version .verdict.approved { background: #16261C; }
+  [data-theme="dark"] .secret-box { background: #2A2410; border-color: #6E5A1C; }
+  [data-theme="dark"] .danger-zone { border-color: #4A262B; }
+  [data-theme="dark"] .tag.branch { background: color-mix(in srgb, var(--c) 22%, var(--card)); color: color-mix(in srgb, var(--c) 55%, #FFF); border-color: color-mix(in srgb, var(--c) 50%, var(--card)); }
+  [data-theme="dark"] .nav .count { background: #E5484D; color: #FFF; }
+  [data-theme="dark"] .theme-toggle .when-dark { display: inline; }
+  [data-theme="dark"] .theme-toggle .when-light { display: none; }
+}
 
 /* ---------- Impresión ---------- */
 @media print {

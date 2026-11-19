@@ -1,0 +1,26 @@
+{% extends "web/base.html" %}
+{% block title %}Editar #D{{ deliverable.pk }}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Ruta"><a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span><a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span><a href="{% url 'web:deliverable' deliverable.pk %}">#D{{ deliverable.pk }}</a><span aria-hidden="true">/</span><span>Editar</span></nav>
+<div class="page-head"><div class="title"><h1>Editar entregable</h1>{% if deliverable.is_late %}<p class="small"><span class="badge late">Entregado tarde</span> Cambiar la fecha no quita esta marca.</p>{% endif %}</div></div>
+<section class="grid two">
+  <form method="post" class="card">{% csrf_token %}
+    <div class="field"><label for="{{ form.milestone.id_for_label }}">{{ form.milestone.label }}</label>{{ form.milestone }}</div>
+    <div class="field"><label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>{{ form.title }}{% for e in form.title.errors %}<p class="small overdue">{{ e }}</p>{% endfor %}</div>
+    <div class="field"><label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>{{ form.description }}</div>
+    <div class="field"><label for="{{ form.due_at.id_for_label }}">{{ form.due_at.label }}</label>{{ form.due_at }}{% for e in form.due_at.errors %}<p class="small overdue">{{ e }}</p>{% endfor %}</div>
+    <fieldset class="field" style="border: 0; padding: 0; margin: 0 0 14px">
+      <legend style="font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px">Asignado a</legend>
+      {% for choice in form.assignees %}<label class="check">{{ choice.tag }} {{ choice.choice_label }}</label>{% endfor %}
+    </fieldset>
+    <div class="actions"><button type="submit" class="btn">Guardar cambios</button><a href="{% url 'web:deliverable' deliverable.pk %}" class="btn secondary">Cancelar</a></div>
+  </form>
+  <section class="card danger-zone">
+    <header><h2>Eliminar entregable</h2></header>
+    <p class="small muted">Deja de verse, pero sus versiones, evaluaciones y su historial en la auditoría se conservan.</p>
+    <form method="post" action="{% url 'web:deliverable_delete' deliverable.pk %}" onsubmit="return confirm('¿Eliminar #D{{ deliverable.pk }}?')">{% csrf_token %}
+      <button type="submit" class="btn danger">Eliminar entregable</button>
+    </form>
+  </section>
+</section>
+{% endblock %}

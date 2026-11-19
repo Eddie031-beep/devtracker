@@ -15,6 +15,8 @@
   </div>
   <div class="actions no-print">
     <a href="{% url 'web:project_history' project.pk %}" class="btn secondary">Historial</a>
+    {% if can_manage %}<a href="{% url 'web:members' project.pk %}" class="btn secondary">Integrantes</a>
+    <a href="{% url 'web:project_edit' project.pk %}" class="btn secondary">Editar</a>{% endif %}
     <a href="{% url 'reports:project' project.pk %}" class="btn secondary">Reporte</a>
     {% if can_review %}<a href="{% url 'web:project_audit' project.pk %}" class="btn secondary">Auditoría</a>{% endif %}
   </div>
@@ -78,6 +80,7 @@
         <h3>{{ milestone.title }}</h3>
         <span class="muted small">{{ items|length }} entregable{{ items|length|pluralize }} · cierra {{ milestone.due_date|date:"d M Y" }}</span>
       </div>
+      {% if can_manage %}<a href="{% url 'web:milestone_edit' milestone.pk %}" class="btn secondary sm no-print">Editar hito</a>{% endif %}
     </header>
     {% if items %}
     <div class="table-wrap"><table>
@@ -183,6 +186,7 @@
   <header><h2>Reportes</h2></header>
   <div class="actions">
     <a href="{% url 'reports:project' project.pk %}" class="btn secondary">Reporte imprimible (PDF)</a>
+    <a href="{% url 'reports:project_xlsx' project.pk %}" class="btn secondary">Excel (.xlsx)</a>
     <a href="{% url 'reports:deliverables_csv' project.pk %}" class="btn secondary">Entregables (CSV)</a>
     <a href="{% url 'reports:members_csv' project.pk %}" class="btn secondary">Integrantes (CSV)</a>
     {% if can_review %}<a href="{% url 'reports:audit_csv' project.pk %}" class="btn secondary">Auditoría (CSV)</a>{% endif %}
@@ -194,7 +198,9 @@
 <script src="{% static 'web/vendor/chart-4.4.4.umd.min.js' %}"></script>
 <script>
   Chart.defaults.font.family = "'IBM Plex Sans', system-ui, sans-serif";
-  Chart.defaults.color = "#4A5160";
+  const css = getComputedStyle(document.documentElement);
+  Chart.defaults.color = css.getPropertyValue("--ink-2").trim() || "#4A5160";
+  Chart.defaults.borderColor = css.getPropertyValue("--line").trim() || "#E1E4EA";
   const chart = JSON.parse(document.getElementById("chart-data").textContent);
   new Chart(document.getElementById("status-chart"), {
     type: "doughnut",

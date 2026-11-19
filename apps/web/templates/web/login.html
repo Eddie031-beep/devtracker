@@ -31,6 +31,7 @@
       <div class="field">
         <label for="id_password">Contraseña</label>
         <input type="password" id="id_password" name="password" autocomplete="current-password" required>
+        <a href="{% url 'web:password_reset' %}" class="small" style="display: inline-block; margin-top: 6px">¿Olvidaste tu contraseña?</a>
       </div>
       <input type="hidden" name="next" value="{{ next }}">
       <button type="submit" class="btn block">Entrar</button>

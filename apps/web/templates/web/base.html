@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}DevTracker{% endblock %} · DevTracker</title>
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <script>
+    // Tema antes de pintar (evita el destello): lo elegido, o el del sistema operativo
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem("devtracker-theme"); } catch (e) {}
+      if (!theme && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark";
+      if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    })();
+  </script>
 </head>
 <body>
 {% block body %}
@@ -39,6 +48,10 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12"></path></svg>
         <span>API (Swagger)</span>
       </a>
+      <button type="button" class="theme-toggle nav-button" id="theme-toggle" aria-pressed="false">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+        <span class="when-light">Modo oscuro</span><span class="when-dark">Modo claro</span>
+      </button>
       {% if user.is_staff %}
       <a href="{% url 'admin:index' %}">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
@@ -67,6 +80,22 @@
   </main>
 </div>
 {% endblock %}
+<script>
+  (function () {
+    var button = document.getElementById("theme-toggle");
+    if (!button) return;
+    var root = document.documentElement;
+    function sync() { button.setAttribute("aria-pressed", root.getAttribute("data-theme") === "dark" ? "true" : "false"); }
+    sync();
+    button.addEventListener("click", function () {
+      var dark = root.getAttribute("data-theme") !== "dark";
+      if (dark) root.setAttribute("data-theme", "dark"); else root.removeAttribute("data-theme");
+      try { localStorage.setItem("devtracker-theme", dark ? "dark" : "light"); } catch (e) {}
+      sync();
+      location.reload(); // las gráficas toman los colores del tema al cargar
+    });
+  })();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

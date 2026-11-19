@@ -15,6 +15,8 @@ from apps.projects.models import Deliverable, Project
 from apps.projects.permissions import filter_projects_for_user
 from apps.projects.services import can_review
 
+from .xlsx import build_xlsx
+
 
 def _project(request, pk):
     # Proyecto ajeno → 404, igual que en la API y en el dashboard
@@ -78,9 +80,8 @@ def project_report(request, pk):
     )
 
 
-@login_required
-def deliverables_csv(request, pk):
-    project = _project(request, pk)
+def _deliverables_table(project):
+    header = ["Hito", "Entregable", "Asignados", "Estado", "Vence", "Entregado", "Tarde", "Versiones", "Nota vigente"]
     rows = [
         [
             d.milestone.title,
@@ -95,13 +96,14 @@ def deliverables_csv(request, pk):
         ]
         for d in _deliverable_rows(project)
     ]
-    header = ["Hito", "Entregable", "Asignados", "Estado", "Vence", "Entregado", "Tarde", "Versiones", "Nota vigente"]
-    return _csv_response(project, "entregables", header, rows)
+    return header, rows
 
 
-@login_required
-def members_csv(request, pk):
-    project = _project(request, pk)
+def _members_table(project):
+    header = [
+        "Integrante", "Usuario", "Rol", "Asignados", "Entregados", "Tarde", "% a tiempo",
+        "Aprobados", "Nota promedio", "Versiones", "Commits", "PR",
+    ]
     rows = [
         [
             m["name"],
@@ -119,20 +121,12 @@ def members_csv(request, pk):
         ]
         for m in project_metrics(project)["members"]
     ]
-    header = [
-        "Integrante", "Usuario", "Rol", "Asignados", "Entregados", "Tarde", "% a tiempo",
-        "Aprobados", "Nota promedio", "Versiones", "Commits", "PR",
-    ]
-    return _csv_response(project, "integrantes", header, rows)
+    return header, rows
 
 
-@login_required
-def audit_csv(request, pk):
-    """La auditoría completa: solo quien puede verla en la API (líder, evaluador del proyecto o admin)."""
-    project = _project(request, pk)
-    if not can_review(request.user, project):
-        raise PermissionDenied("Solo el líder, el evaluador del proyecto o un administrador puede ver la auditoría.")
+def _audit_table(project):
     labels = dict(Action.choices)
+    header = ["Fecha", "Actor", "Acción", "Objeto", "Id", "Cambios"]
     rows = [
         [
             _local(log.created_at),
@@ -144,4 +138,44 @@ def audit_csv(request, pk):
         ]
         for log in AuditLog.objects.filter(project=project).select_related("actor").order_by("created_at")
     ]
-    return _csv_response(project, "auditoria", ["Fecha", "Actor", "Acción", "Objeto", "Id", "Cambios"], rows)
+    return header, rows
+
+
+def _check_audit(request, project):
+    """La auditoría completa: solo quien puede verla en la API (líder, evaluador del proyecto o admin)."""
+    if not can_review(request.user, project):
+        raise PermissionDenied("Solo el líder, el evaluador del proyecto o un administrador puede ver la auditoría.")
+
+
+@login_required
+def deliverables_csv(request, pk):
+    project = _project(request, pk)
+    return _csv_response(project, "entregables", *_deliverables_table(project))
+
+
+@login_required
+def members_csv(request, pk):
+    project = _project(request, pk)
+    return _csv_response(project, "integrantes", *_members_table(project))
+
+
+@login_required
+def audit_csv(request, pk):
+    project = _project(request, pk)
+    _check_audit(request, project)
+    return _csv_response(project, "auditoria", *_audit_table(project))
+
+
+@login_required
+def project_xlsx(request, pk):
+    """Un solo Excel con una hoja por tabla; la de auditoría solo si quien descarga puede verla."""
+    project = _project(request, pk)
+    sheets = [("Entregables", *_deliverables_table(project)), ("Integrantes", *_members_table(project))]
+    if can_review(request.user, project):
+        sheets.append(("Auditoría", *_audit_table(project)))
+    response = HttpResponse(
+        build_xlsx(sheets), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    filename = f"devtracker-{slugify(project.name)}-{timezone.localdate():%Y%m%d}.xlsx"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

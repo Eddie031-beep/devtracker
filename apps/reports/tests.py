@@ -84,3 +84,47 @@ class ReportTests(TestCase):
         self.client.force_login(self.outsider)
         for name in ("project", "deliverables_csv", "members_csv", "audit_csv"):
             self.assertEqual(self.client.get(self.url(name)).status_code, 404, name)
+
+
+class XlsxTests(ReportTests):
+    def read_xlsx(self, response):
+        import zipfile
+        from xml.etree import ElementTree
+
+        ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        book = zipfile.ZipFile(io.BytesIO(response.content))
+        names = [s.get("name") for s in ElementTree.fromstring(book.read("xl/workbook.xml")).iter(f"{{{ns['m']}}}sheet")]
+        sheets = {}
+        for i, name in enumerate(names, start=1):
+            root = ElementTree.fromstring(book.read(f"xl/worksheets/sheet{i}.xml"))
+            sheets[name] = [
+                ["".join(c.itertext()) for c in row.findall("m:c", ns)] for row in root.iter(f"{{{ns['m']}}}row")
+            ]
+        return sheets
+
+    def test_excel_con_una_hoja_por_tabla(self):
+        self.client.force_login(self.leader)
+        response = self.client.get(self.url("project_xlsx"))
+        self.assertEqual(response["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        self.assertIn(".xlsx", response["Content-Disposition"])
+        sheets = self.read_xlsx(response)
+        self.assertEqual(list(sheets), ["Entregables", "Integrantes", "Auditoría"])
+        self.assertEqual(sheets["Entregables"][1][1:4], ["Informe", "Ana Díaz", "Aprobado"])
+        self.assertEqual(sheets["Entregables"][1][-1], "88")
+
+    def test_integrante_no_recibe_la_hoja_de_auditoria_y_ajeno_404(self):
+        self.client.force_login(self.ana)
+        self.assertEqual(list(self.read_xlsx(self.client.get(self.url("project_xlsx")))), ["Entregables", "Integrantes"])
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(self.url("project_xlsx")).status_code, 404)
+
+    def test_texto_que_parece_formula_queda_como_texto(self):
+        from .xlsx import build_xlsx
+
+        data = build_xlsx([("Hoja", ["A"], [["=HYPERLINK(\"x\")"], [5]])])
+        import zipfile
+
+        sheet = zipfile.ZipFile(io.BytesIO(data)).read("xl/worksheets/sheet1.xml").decode()
+        self.assertIn('t="inlineStr"', sheet)
+        self.assertNotIn("<f>", sheet)
+        self.assertIn("<v>5</v>", sheet)
