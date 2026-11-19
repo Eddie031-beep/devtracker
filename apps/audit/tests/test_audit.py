@@ -304,3 +304,12 @@ class AuditEndpointTests(AuditBase):
         response = self.as_user(self.leader).get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["action"], Action.PROJECT_DELETED)
+
+
+class JsonSafeDatesTests(TestCase):
+    def test_misma_hora_en_otra_zona_no_es_un_cambio(self):
+        moment = datetime(2026, 12, 10, 23, 0, tzinfo=dt_timezone.utc)
+        local = timezone.localtime(moment)  # 18:00 en Panamá
+        self.assertEqual(diff({"due_at": moment}, {"due_at": local}), {})
+        later = diff({"due_at": moment}, {"due_at": moment + timedelta(hours=1)})
+        self.assertEqual(later["due_at"]["after"], moment + timedelta(hours=1))

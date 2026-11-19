@@ -162,3 +162,41 @@ class LeaderManageTests(TestCase):
         )
         self.assertEqual(self.project.memberships.get(user=self.leader).role, Role.LEADER)
         self.assertContains(response, "líder")
+
+
+@override_settings(NOTIFICATIONS_SEND_EMAIL=False)
+class TestSessionFindingsTests(TestCase):
+    """Hallazgos de la prueba integral del 19/11."""
+
+    setUp = LeaderManageTests.setUp
+
+    def test_editar_solo_el_titulo_no_registra_cambio_de_fecha(self):
+        self.client.force_login(self.leader)
+        due = timezone.localtime(self.deliverable.due_at).strftime("%Y-%m-%dT%H:%M")
+        # Guardada sin segundos, como la dejaría el formulario
+        self.deliverable.due_at = timezone.make_aware(timezone.datetime.strptime(due, "%Y-%m-%dT%H:%M"))
+        self.deliverable.save()
+        self.client.post(
+            reverse("web:deliverable_edit", args=[self.deliverable.pk]),
+            {"milestone": self.milestone.pk, "title": "Otro título", "description": "", "due_at": due, "assignees": [self.ana.pk]},
+        )
+        log = AuditLog.objects.get(project=self.project, action=Action.DELIVERABLE_UPDATED)
+        self.assertEqual(list(log.changes), ["title"])
+
+    def test_agregar_integrante_arranca_como_integrante(self):
+        self.client.force_login(self.leader)
+        page = self.client.get(reverse("web:members", args=[self.project.pk]))
+        self.assertContains(page, '<option value="member" selected>')
+
+    def test_auditoria_muestra_el_nombre_del_integrante(self):
+        self.client.force_login(self.leader)
+        self.client.post(reverse("web:members", args=[self.project.pk]), {"user": self.leo.pk, "role": Role.MEMBER, "responsibilities": ""})
+        page = self.client.get(reverse("web:project_audit", args=[self.project.pk]), {"action": Action.MEMBER_ADDED})
+        self.assertContains(page, "Integrante · Leo")
+
+
+class SuperuserRoleTests(TestCase):
+    def test_createsuperuser_queda_como_administrador(self):
+        user = User.objects.create_superuser("jefe", "jefe@x.com", "x")
+        self.assertEqual(user.global_role, User.GlobalRole.ADMIN)
+        self.assertEqual(User.objects.create_user("ana", "ana@x.com", "x").global_role, User.GlobalRole.STUDENT)

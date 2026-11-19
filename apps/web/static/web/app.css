@@ -83,7 +83,7 @@ footer.foot { margin-top: 8px; font-size: 13px; color: var(--muted); }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .layout-side { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
-@media (max-width: 1000px) { .layout-side { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .layout-side { grid-template-columns: minmax(0, 1fr); } }
 .kpi { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; }
 .kpi strong { font-size: 28px; font-weight: 600; line-height: 1.1; }
 .kpi span { font-size: 13px; color: var(--muted); }
