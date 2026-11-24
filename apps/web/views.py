@@ -50,6 +50,7 @@ TARGET_LABELS = {
     "deliverableversion": "Versión", "evaluation": "Evaluación", "user": "Integrante",
     # Examen semestral
     "issue": "Incidencia", "risk": "Riesgo", "mitigation": "Mitigación", "changerequest": "Cambio de alcance",
+    "meeting": "Reunión", "agreement": "Acuerdo",
 }
 
 
