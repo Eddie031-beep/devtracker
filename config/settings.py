@@ -67,6 +67,8 @@ INSTALLED_APPS = [
     "apps.web",
     "apps.notifications",
     "apps.reports",
+    # Examen semestral
+    "apps.issues",
 ]
 
 MIDDLEWARE = [
