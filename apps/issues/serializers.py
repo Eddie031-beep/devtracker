@@ -1,20 +1,8 @@
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from apps.core.api import PersonSerializer
+
 from .models import Issue, IssueEvent
-
-User = get_user_model()
-
-
-class PersonSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ["id", "username", "name"]
-
-    def get_name(self, user):
-        return user.get_full_name() or user.username
 
 
 class IssueSerializer(serializers.ModelSerializer):
