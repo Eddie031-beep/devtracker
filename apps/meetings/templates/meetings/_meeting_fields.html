@@ -1,0 +1,15 @@
+<div class="tw-grid tw-gap-x-4 md:tw-grid-cols-3">
+  <div class="md:tw-col-span-2">{% include "web/_tw_field.html" with field=form.title %}</div>
+  {% include "web/_tw_field.html" with field=form.held_at %}
+</div>
+{% include "web/_tw_field.html" with field=form.location %}
+<fieldset class="tw-mb-4 tw-border-0 tw-p-0">
+  <legend class="dt-label">Participantes <span class="tw-text-red-600" aria-hidden="true">*</span></legend>
+  <div class="tw-flex tw-flex-wrap tw-gap-x-5 tw-gap-y-1">
+    {% for choice in form.participants %}
+    <label class="tw-flex tw-min-h-[36px] tw-items-center tw-gap-2 tw-text-sm tw-font-normal">{{ choice.tag }} {{ choice.choice_label }}</label>
+    {% endfor %}
+  </div>
+  {% for error in form.participants.errors %}<p class="dt-error">{{ error }}</p>{% endfor %}
+</fieldset>
+{% include "web/_tw_field.html" with field=form.summary %}

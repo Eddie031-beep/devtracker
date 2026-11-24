@@ -1,0 +1,59 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}{{ meeting.title }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title=meeting.title %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_320px]">
+  <div class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card" aria-labelledby="acta-title">
+      <h2 id="acta-title" class="tw-mb-1 tw-text-base">Acta</h2>
+      <p class="tw-mb-4 tw-text-sm tw-text-muted">{{ meeting.held_at|date:"l d \d\e F Y · H:i" }}{% if meeting.location %} · {{ meeting.location }}{% endif %}</p>
+      <p class="tw-whitespace-pre-line tw-break-words">{{ meeting.summary }}</p>
+      {% if can_edit %}
+      <div class="tw-mt-5 tw-flex tw-flex-wrap tw-gap-2">
+        <a href="{% url 'meetings:edit' meeting.pk %}" class="btn secondary sm">Editar acta</a>
+        <form method="post" action="{% url 'meetings:delete' meeting.pk %}" onsubmit="return confirm('¿Eliminar esta reunión? Queda registrada en la auditoría.')">{% csrf_token %}
+          <button type="submit" class="btn danger sm">Eliminar</button>
+        </form>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="dt-card-flush" aria-labelledby="agr-title">
+      <h2 id="agr-title" class="tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4 tw-text-base">Acuerdos</h2>
+      {% if agreements %}
+      <ul class="tw-m-0 tw-list-none tw-p-0">
+        {% for a in agreements %}{% include "meetings/_agreement_row.html" %}{% endfor %}
+      </ul>
+      {% else %}<p class="tw-p-4 tw-text-sm tw-text-muted">Esta reunión no tiene acuerdos registrados.</p>{% endif %}
+      {% if agreement_form %}
+      <form method="post" action="{% url 'meetings:agreement_add' meeting.pk %}" class="tw-border-0 tw-border-t tw-border-solid tw-border-line tw-p-4">{% csrf_token %}
+        <h3 class="tw-mb-3">Nuevo acuerdo</h3>
+        {% include "web/_tw_field.html" with field=agreement_form.description %}
+        <div class="tw-grid tw-gap-x-4 sm:tw-grid-cols-2">
+          {% include "web/_tw_field.html" with field=agreement_form.responsible %}
+          {% include "web/_tw_field.html" with field=agreement_form.due_date %}
+        </div>
+        <button type="submit" class="btn">Agregar acuerdo</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card" aria-labelledby="who-title">
+      <h2 id="who-title" class="tw-mb-3 tw-text-base">Participantes</h2>
+      <ul class="tw-m-0 tw-flex tw-list-none tw-flex-col tw-gap-2 tw-p-0">
+        {% for p in participants %}
+        <li class="tw-flex tw-items-center tw-gap-2 tw-text-sm"><span class="avatar sm">{{ p|initials }}</span>{{ p.get_full_name|default:p.username }}</li>
+        {% endfor %}
+      </ul>
+      <p class="dt-help tw-mt-4">Registró el acta {{ meeting.created_by.get_full_name|default:meeting.created_by.username }}.</p>
+    </section>
+    <section class="dt-card tw-text-sm tw-text-muted">
+      Cualquier integrante del proyecto puede leer el acta. Solo el responsable de cada acuerdo o el líder pueden actualizarlo.
+    </section>
+  </aside>
+</div>
+{% endblock %}

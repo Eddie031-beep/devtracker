@@ -1,0 +1,58 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}Reuniones · {{ project.name }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title="Reuniones y acuerdos" subtitle="Actas de las reuniones del equipo y los acuerdos que salieron de ellas." %}
+
+<section class="tw-grid tw-grid-cols-3 tw-gap-3" aria-label="Resumen de acuerdos">
+  <a href="?status=pending" class="dt-card tw-flex tw-flex-col tw-gap-1 tw-text-ink hover:tw-border-accent hover:tw-no-underline"><span class="tw-text-2xl tw-font-semibold">{{ totals.pending }}</span><span class="tw-text-sm tw-text-muted">Pendientes</span></a>
+  <a href="?status=overdue" class="dt-card tw-flex tw-flex-col tw-gap-1 tw-text-ink hover:tw-border-accent hover:tw-no-underline"><span class="tw-text-2xl tw-font-semibold{% if totals.overdue %} tw-text-red-600 dark:tw-text-red-400{% endif %}">{{ totals.overdue }}</span><span class="tw-text-sm tw-text-muted">Vencidos</span></a>
+  <a href="?status=done" class="dt-card tw-flex tw-flex-col tw-gap-1 tw-text-ink hover:tw-border-accent hover:tw-no-underline"><span class="tw-text-2xl tw-font-semibold">{{ totals.done }}</span><span class="tw-text-sm tw-text-muted">Cumplidos</span></a>
+</section>
+
+{% if form %}
+<details class="dt-card"{% if open_form or form.errors %} open{% endif %}>
+  <summary class="tw-cursor-pointer tw-font-semibold">Registrar acta de reunión</summary>
+  <form method="post" class="tw-mt-4">{% csrf_token %}
+    {% include "meetings/_meeting_fields.html" %}
+    <button type="submit" class="btn">Registrar acta</button>
+  </form>
+</details>
+{% endif %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+  <section class="dt-card-flush" aria-labelledby="meetings-title">
+    <h2 id="meetings-title" class="tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4 tw-text-base">Actas</h2>
+    {% if meetings %}
+    <ul class="tw-m-0 tw-list-none tw-p-0">
+      {% for m in meetings %}
+      <li class="tw-border-0 tw-border-b tw-border-solid tw-border-line-2 tw-px-4 tw-py-3 last:tw-border-b-0">
+        <a href="{% url 'meetings:detail' m.pk %}" class="tw-font-medium">{{ m.title }}</a>
+        <p class="tw-mt-1 tw-text-xs tw-text-muted">{{ m.held_at|date:"d M Y · H:i" }} · {{ m.participants.all|length }} participante{{ m.participants.all|length|pluralize }}{% if m.location %} · {{ m.location|truncatechars:40 }}{% endif %}</p>
+        <div class="tw-mt-2 tw-flex tw-flex-wrap tw-gap-1.5">
+          <span class="dt-chip dt-chip-gray">{{ m.n_agreements }} acuerdo{{ m.n_agreements|pluralize }}</span>
+          {% if m.n_overdue %}<span class="dt-chip dt-chip-red">{{ m.n_overdue }} vencido{{ m.n_overdue|pluralize }}</span>{% elif m.n_pending %}<span class="dt-chip dt-chip-amber">{{ m.n_pending }} pendiente{{ m.n_pending|pluralize }}</span>{% elif m.n_agreements %}<span class="dt-chip dt-chip-green">Todo cumplido</span>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="tw-p-6 tw-text-center tw-text-muted">Aún no hay actas.</p>{% endif %}
+  </section>
+
+  <section class="dt-card-flush" aria-labelledby="agreements-title">
+    <h2 id="agreements-title" class="tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4 tw-text-base">Acuerdos</h2>
+    <form method="get" class="tw-flex tw-flex-wrap tw-items-end tw-gap-3 tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4">
+      <div class="tw-min-w-[130px] tw-flex-1"><label class="dt-label" for="{{ filters.status.id_for_label }}">Estado</label>{{ filters.status }}</div>
+      <div class="tw-min-w-[130px] tw-flex-1"><label class="dt-label" for="{{ filters.responsible.id_for_label }}">Responsable</label>{{ filters.responsible }}</div>
+      <label class="tw-flex tw-min-h-[44px] tw-items-center tw-gap-2 tw-text-sm"><input type="checkbox" name="mios" value="1"{% if request.GET.mios %} checked{% endif %}> Míos</label>
+      <button type="submit" class="btn secondary">Filtrar</button>
+      {% if filtered %}<a href="?" class="tw-text-sm">Quitar filtros</a>{% endif %}
+    </form>
+    {% if agreements %}
+    <ul class="tw-m-0 tw-list-none tw-p-0">
+      {% for a in agreements %}{% include "meetings/_agreement_row.html" with show_meeting=True %}{% endfor %}
+    </ul>
+    {% else %}<p class="tw-p-6 tw-text-center tw-text-muted">{% if filtered %}Ningún acuerdo coincide.{% else %}Aún no hay acuerdos.{% endif %}</p>{% endif %}
+  </section>
+</div>
+{% endblock %}
