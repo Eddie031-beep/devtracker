@@ -48,6 +48,8 @@ LIVE = {"milestone__deleted_at__isnull": True, "milestone__project__deleted_at__
 TARGET_LABELS = {
     "project": "Proyecto", "milestone": "Hito", "deliverable": "Entregable", "projectmembership": "Integrante",
     "deliverableversion": "Versión", "evaluation": "Evaluación", "user": "Integrante",
+    # Examen semestral
+    "issue": "Incidencia", "risk": "Riesgo", "mitigation": "Mitigación",
 }
 
 
