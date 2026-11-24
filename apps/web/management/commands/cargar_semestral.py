@@ -47,7 +47,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def loaders():
-        return [("Incidencias", load_issues), ("Riesgos", load_risks)]
+        return [("Incidencias", load_issues), ("Riesgos", load_risks), ("Cambios de alcance", load_changes)]
 
 
 def load_issues(command, project, people):
@@ -129,4 +129,41 @@ def load_risks(command, project, people):
 
     risk("Retraso en las evaluaciones del profesor",
          "Si las revisiones llegan tarde no da tiempo de corregir antes del cierre.", 2, 2, b)
+    return True
+
+
+def load_changes(command, project, people):
+    from apps.scope.services import decide_change, propose_change, project_deliverables, withdraw_change
+
+    if project.change_requests.exists():
+        return False
+    evaluator = people["evaluator"]
+    a, b = people["members"][0], people["members"][1]
+    deliverables = list(project_deliverables(project))
+    last = deliverables[-2:] if len(deliverables) >= 2 else deliverables
+
+    def propose(actor, title, description, justification, impact, level, refs=()):
+        return propose_change(project, actor, title=title, description=description, justification=justification,
+                              expected_impact=impact, impact_level=level, affected_deliverables=refs)
+
+    one = propose(a, "Exportar el reporte también en Excel",
+                  "Agregar una descarga .xlsx con las hojas de entregables, integrantes y auditoría.",
+                  "El profesor revisa las notas en hojas de cálculo y el CSV pierde los acentos en Excel.",
+                  "Un día de trabajo; no cambia fechas de entrega.", "low", last[:1])
+    decide_change(one, evaluator, "approved", "Aprobado: no afecta el cronograma.")
+
+    two = propose(b, "Quitar la integración con Gemini",
+                  "No incluir las sugerencias automáticas con Gemini en la entrega final.",
+                  "La clave de la API tiene límite diario y falla en la demo.",
+                  "Se libera tiempo para pruebas; se pierde una función opcional.", "medium", last)
+    decide_change(two, evaluator, "rejected", "Se mantiene como opcional: basta con ocultarla si no hay clave.")
+
+    propose(a, "Mover la presentación final una semana",
+            "Pasar la presentación final al viernes siguiente.",
+            "Coincide con el parcial de otra materia de todo el grupo.",
+            "Una semana más para pulir; el evaluador tendría que reprogramar.", "high", last[-1:])
+
+    three = propose(b, "Agregar modo sin conexión", "Que la app funcione sin internet.",
+                    "Algunas aulas no tienen buena señal.", "Demasiado trabajo para el tiempo que queda.", "high")
+    withdraw_change(three, b)
     return True
