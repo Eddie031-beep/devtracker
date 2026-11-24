@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     # Examen semestral
     "apps.issues",
     "apps.risks",
+    "apps.scope",
 ]
 
 MIDDLEWARE = [

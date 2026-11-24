@@ -47,6 +47,11 @@ class Action(models.TextChoices):
     RISK_DELETED = "risk.deleted", "Riesgo eliminado"
     MITIGATION_ADDED = "mitigation.added", "Medida de mitigación registrada"
     MITIGATION_UPDATED = "mitigation.updated", "Medida de mitigación actualizada"
+    # Examen semestral: solicitudes de cambio de alcance
+    CHANGE_REQUESTED = "change.requested", "Cambio de alcance propuesto"
+    CHANGE_UPDATED = "change.updated", "Cambio de alcance editado"
+    CHANGE_WITHDRAWN = "change.withdrawn", "Cambio de alcance retirado"
+    CHANGE_DECIDED = "change.decided", "Cambio de alcance decidido"
 
 
 class AuditQuerySet(models.QuerySet):

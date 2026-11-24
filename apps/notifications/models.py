@@ -12,6 +12,7 @@ class Notification(models.Model):
         DUE_SOON = "due_soon", "Entregable por vencer"
         ISSUE = "issue", "Incidencia"
         RISK = "risk", "Riesgo"
+        CHANGE_REQUEST = "change_request", "Cambio de alcance"
 
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     kind = models.CharField(max_length=20, choices=Kind.choices)
