@@ -186,6 +186,14 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    # Varios modelos tienen un campo «status»: cada uno con su nombre en el esquema
+    "ENUM_NAME_OVERRIDES": {
+        "DeliverableStatusEnum": "apps.projects.models.Deliverable.Status",
+        "IssueStatusEnum": "apps.issues.models.Issue.Status",
+        "RiskStatusEnum": "apps.risks.models.Risk.Status",
+        "ChangeRequestStatusEnum": "apps.scope.models.ChangeRequest.Status",
+        "DecisionEnum": "apps.evaluations.models.Evaluation.Decision",
+    },
 }
 
 SIMPLE_JWT = {
