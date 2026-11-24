@@ -407,6 +407,32 @@ y las reglas de `services.py`). Datos de ejemplo: `python manage.py cargar_semes
 | POST | `/api/issues/<id>/transition/` | `start`/`resolve`: responsable o líder · `verify`/`reopen`: evaluador |
 | GET, POST | `/api/issues/<id>/history/` | Integrante (POST agrega un comentario) |
 
+### 2. Riesgos del proyecto
+
+`/proyectos/<id>/riesgos/` · código `apps/risks/`
+
+- Los estudiantes registran riesgos con **descripción, probabilidad, impacto** (1 Baja/Bajo, 2 Media/Medio,
+  3 Alta/Alto) y **responsable**. El evaluador los consulta.
+- **Nivel = probabilidad × impacto** (`apps/risks/matrix.py`): **Bajo** 1–2, **Medio** 3–4, **Alto** 6–9.
+  Se calcula en el servidor al guardar (la base además rechaza valores fuera de 1–3) y el formulario lo
+  muestra en vivo mientras se eligen los valores.
+- La página muestra la **matriz 3×3** con los riesgos abiertos de cada celda; tocar una celda filtra la lista.
+- **Medidas de mitigación** con responsable y fecha; se marcan cumplidas. La primera medida pone el riesgo
+  *En mitigación*.
+- Estados: **Identificado, En mitigación, Materializado, Cerrado** (y reabrir un cerrado). Materializarse o
+  cerrarse exige comentario. Editar, cambiar el estado y mitigar: el líder o el responsable del riesgo.
+- Historial en la página del riesgo (sale de la auditoría) y avisos al responsable y, si el riesgo es alto o
+  se materializa, al líder y al evaluador.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/risks/` | Ver: integrante · Crear: estudiante (filtros `status`, `level`) |
+| GET | `/api/projects/<id>/risks/matrix/` | Integrante |
+| GET, PATCH, DELETE | `/api/risks/<id>/` | Editar: líder o responsable · Borrar: líder |
+| POST | `/api/risks/<id>/status/` | Líder o responsable (`status`, `comment`) |
+| GET, POST | `/api/risks/<id>/mitigations/` | Crear: líder o responsable |
+| POST | `/api/mitigations/<id>/done/` | Responsable de la medida, del riesgo o líder |
+
 ## Cobertura del MoSCoW (Laboratorio 3)
 
 | # | Requisito | Prioridad | Dónde se ve |
