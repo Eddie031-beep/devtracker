@@ -4,7 +4,7 @@ from django.urls import reverse
 from apps.core.testing import ProjectFixtureMixin
 
 from ..models import Mitigation, Risk
-from ..services import add_mitigation, create_risk
+from ..services import add_mitigation, change_status, create_risk
 
 
 @override_settings(NOTIFICATIONS_SEND_EMAIL=False)
@@ -35,9 +35,14 @@ class RiskWebTests(ProjectFixtureMixin, TestCase):
         self.new_risk(3, 3)
         create_risk(self.project, self.member, title="Riesgo menor", description="Cambia el nombre del curso",
                     probability=1, impact=1, owner=self.member)
+        closed = create_risk(self.project, self.member, title="Riesgo ya cerrado", description="Pasó el examen de mitad",
+                             probability=1, impact=1, owner=self.member)
+        change_status(closed, self.member, "closed", "Ya no aplica")
         response = self.web(self.member).get(self.list_url, {"p": 1, "i": 1})
         self.assertContains(response, "Riesgo menor")
         self.assertNotContains(response, "Falta de tiempo")
+        # La celda cuenta solo los abiertos, y la lista que abre muestra esos mismos
+        self.assertNotContains(response, "Riesgo ya cerrado")
         response = self.client.get(self.list_url, {"level": "high"})
         self.assertContains(response, "Falta de tiempo")
         self.assertNotContains(response, "Riesgo menor")

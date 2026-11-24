@@ -58,7 +58,8 @@ def risk_list(request, pk):
             risks = risks.filter(owner=data["owner"])
         if data["p"] and data["i"]:
             selected = (data["p"], data["i"])
-            risks = risks.filter(probability=data["p"], impact=data["i"])
+            # La matriz cuenta solo los abiertos: la celda muestra esos mismos
+            risks = risks.filter(probability=data["p"], impact=data["i"]).exclude(status=Risk.Status.CLOSED)
 
     # La matriz muestra los riesgos abiertos (los cerrados ya no amenazan al proyecto)
     open_risks = [r for r in all_risks if r.is_open]
