@@ -7,6 +7,8 @@ urlpatterns = [
     # Interfaz web: dashboard por rol, proyectos y entregables (Etapa 3)
     path("", include("apps.web.urls")),
     path("", include("apps.reports.urls")),
+    # Examen semestral: módulos de gestión del proyecto
+    path("", include("apps.issues.urls_web")),
     path("admin/", admin.site.urls),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

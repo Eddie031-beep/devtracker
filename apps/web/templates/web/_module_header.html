@@ -9,7 +9,7 @@
     <h1 class="tw-break-words">{{ title }}</h1>
     {% if subtitle %}<p class="tw-mt-2 tw-text-muted">{{ subtitle }}</p>{% endif %}
   </div>
-  {% if actions %}<div class="tw-flex tw-flex-wrap tw-gap-2">{{ actions }}</div>{% endif %}
+  {% if header_actions %}<div class="tw-flex tw-flex-wrap tw-gap-2">{{ header_actions }}</div>{% endif %}
 </div>
 <nav class="tw-flex tw-gap-1 tw-overflow-x-auto tw-border-0 tw-border-b tw-border-solid tw-border-line tw-pb-2" aria-label="Módulos del proyecto">
   <a href="{% url 'web:project' project.pk %}" class="dt-tab">Resumen</a>

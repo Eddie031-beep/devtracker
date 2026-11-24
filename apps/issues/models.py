@@ -40,12 +40,24 @@ class Issue(TimeStampedModel, SoftDeleteModel):
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["project", "status"])]
 
+    # Color de la etiqueta en la interfaz (clases de tailwind/input.css)
+    STATUS_CHIPS = {"open": "dt-chip-red", "in_progress": "dt-chip-amber", "resolved": "dt-chip-blue", "verified": "dt-chip-green"}
+    PRIORITY_CHIPS = {"low": "dt-chip-gray", "medium": "dt-chip-blue", "high": "dt-chip-amber", "critical": "dt-chip-red"}
+
     def __str__(self):
         return f"#I{self.pk} {self.title}"
 
     @property
     def code(self):
         return f"#I{self.pk}"
+
+    @property
+    def status_chip(self):
+        return self.STATUS_CHIPS[self.status]
+
+    @property
+    def priority_chip(self):
+        return self.PRIORITY_CHIPS[self.priority]
 
 
 class IssueEventQuerySet(models.QuerySet):
