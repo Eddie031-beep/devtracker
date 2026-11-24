@@ -454,6 +454,29 @@ y las reglas de `services.py`). Datos de ejemplo: `python manage.py cargar_semes
 | POST | `/api/change-requests/<id>/decide/` | Evaluador (`decision`: approved/rejected, `comment`) |
 | POST | `/api/change-requests/<id>/withdraw/` | Quien la propuso |
 
+### 4. Reuniones y acuerdos
+
+`/proyectos/<id>/reuniones/` · código `apps/meetings/`
+
+- Los estudiantes registran el **acta** de cada reunión: **fecha y hora**, lugar o enlace, **participantes**
+  (integrantes del proyecto) y **resumen de los temas tratados**. La fecha no puede ser futura.
+- Cada reunión tiene **acuerdos** con **responsable** (integrante o líder), **fecha de cumplimiento** y estado
+  **pendiente o cumplido** (se guarda quién y cuándo lo cumplió). Un pendiente con la fecha pasada se ve
+  como *Vencido*.
+- **Consultar** actas y acuerdos: todos los integrantes del proyecto, incluido el evaluador (un ajeno recibe 404).
+- **Actualizar** un acuerdo: solo su responsable o el líder; reasignarlo, solo el líder. Editar el acta y
+  registrar acuerdos: quien la registró o el líder. Cualquier otro recibe 403.
+- La lista de acuerdos se filtra por pendientes, vencidos, cumplidos, responsable o «míos». Todo queda en la
+  auditoría y el responsable recibe un aviso cuando le asignan un acuerdo.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/meetings/` | Ver: integrante · Registrar: estudiante (`participant_ids`) |
+| GET, PATCH, DELETE | `/api/meetings/<id>/` | Editar o borrar (lógico): quien la registró o líder |
+| POST | `/api/meetings/<id>/agreements/` | Quien registró la reunión o líder |
+| GET | `/api/projects/<id>/agreements/` | Integrante (filtros `status`: pending/done/overdue, `responsible`) |
+| GET, PATCH | `/api/agreements/<id>/` | Actualizar: responsable o líder (reasignar: líder) |
+
 ## Cobertura del MoSCoW (Laboratorio 3)
 
 | # | Requisito | Prioridad | Dónde se ve |
@@ -577,7 +600,7 @@ Nadie sube cambios con la cuenta de otro: así las métricas y la auditoría ref
 | **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
 | **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
 | **Cierre (v1.0.0)** | Interfaz final, pull requests e historial de ramas, administración desde la web, recuperar contraseña en la web, Excel, modo oscuro, calendario iCal, Gemini opcional | ✅ Completa |
-| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | 🚧 En curso |
+| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | 🔍 En revisión (PR #44–#48) |
 
 ### Etapa 1: quién hace qué
 
@@ -627,13 +650,14 @@ avisen al grupo antes de subir migraciones.
 
 | Parte | Tarea | Responsable | PR |
 |---|---|---|---|
-| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | | |
-| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | | |
-| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | | |
-| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | | |
-| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | | |
+| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | | #44 |
+| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | | #45 |
+| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | | #46 |
+| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | | #47 |
+| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | | #48 |
 
-Orden de fusión: 5.0 primero; cada PR de la etapa 5 parte del anterior (5.1 → 5.2 → 5.3 → 5.4).
+Orden de fusión: #44 primero; cada PR de la etapa 5 parte del anterior (#45 → #46 → #47 → #48).
+Datos de ejemplo de los cuatro módulos: `python manage.py cargar_semestral --proyecto 1`.
 
 ### Cierre (v1.0.0)
 
