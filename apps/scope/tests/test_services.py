@@ -72,7 +72,7 @@ class ChangeRequestServiceTests(ProjectFixtureMixin, TestCase):
         self.assertEqual((change.status, change.decided_by), (Status.APPROVED, self.evaluator))
         self.assertIsNotNone(change.decided_at)
         self.assertEqual(self.snapshot_deliverable(), before)  # el entregable sigue igual
-        self.assertTrue(Notification.objects.filter(recipient=self.member, title__contains="aprobada").exists())
+        self.assertTrue(Notification.objects.filter(recipient=self.member, title="Solicitud de cambio aprobada: Quitar el login con Google").exists())
 
     def test_rechazo_definitivo_y_registro_inmutable(self):
         change = decide_change(self.propose(), self.evaluator, "rejected", "Es parte del alcance mínimo")

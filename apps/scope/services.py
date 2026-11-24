@@ -166,7 +166,7 @@ def decide_change(change, actor, decision, comment):
     verb = "aprobó" if change.status == Status.APPROVED else "rechazó"
     notify(
         [change.proposed_by, *leaders], Notification.Kind.CHANGE_REQUEST,
-        f"Cambio de alcance {change.get_status_display().lower()}: {change.title}",
+        f"Solicitud de cambio {change.get_status_display().lower()}: {change.title}",
         f"{_name(actor)} {verb} {change.code}: {comment}",
         _url(change), change.project, exclude=actor,
     )
