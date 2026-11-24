@@ -1,0 +1,61 @@
+{% extends "web/base.html" %}
+{% block title %}Cambios de alcance · {{ project.name }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title="Cambios de alcance" subtitle="Los estudiantes proponen; el evaluador aprueba o rechaza. Las solicitudes y sus decisiones se conservan." %}
+
+<section class="tw-grid tw-grid-cols-2 tw-gap-3 md:tw-grid-cols-4" aria-label="Resumen por estado">
+  {% for value, label, n in summary %}
+  <a href="?status={{ value }}" class="dt-card tw-flex tw-flex-col tw-gap-1 tw-text-ink hover:tw-border-accent hover:tw-no-underline">
+    <span class="tw-text-2xl tw-font-semibold">{{ n }}</span>
+    <span class="tw-text-sm tw-text-muted">{{ label }}{{ n|pluralize }}</span>
+  </a>
+  {% endfor %}
+</section>
+
+{% if is_evaluator and summary.0.2 %}
+<p class="tw-rounded-card tw-border tw-border-solid tw-border-amber-300 tw-bg-amber-50 tw-px-4 tw-py-3 tw-text-sm tw-text-amber-900 dark:tw-border-amber-800 dark:tw-bg-amber-950 dark:tw-text-amber-200">
+  Tienes {{ summary.0.2 }} solicitud{{ summary.0.2|pluralize:"es" }} por decidir.
+</p>
+{% endif %}
+
+{% if form %}
+<details class="dt-card"{% if open_form or form.errors %} open{% endif %}>
+  <summary class="tw-cursor-pointer tw-font-semibold">Proponer un cambio de alcance</summary>
+  <form method="post" class="tw-mt-4">{% csrf_token %}
+    {% include "scope/_fields.html" %}
+    <button type="submit" class="btn">Enviar al evaluador</button>
+  </form>
+</details>
+{% endif %}
+
+<section class="dt-card-flush">
+  <form method="get" class="tw-flex tw-flex-wrap tw-items-end tw-gap-3 tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4">
+    <div class="tw-min-w-[180px]"><label class="dt-label" for="{{ filters.status.id_for_label }}">Estado</label>{{ filters.status }}</div>
+    <button type="submit" class="btn secondary">Filtrar</button>
+    {% if request.GET %}<a href="?" class="tw-text-sm">Quitar filtro</a>{% endif %}
+  </form>
+  {% if changes %}
+  <ul class="tw-m-0 tw-list-none tw-p-0">
+    {% for change in changes %}
+    <li class="tw-flex tw-flex-wrap tw-items-start tw-justify-between tw-gap-3 tw-border-0 tw-border-b tw-border-solid tw-border-line-2 tw-px-4 tw-py-4 last:tw-border-b-0">
+      <div class="tw-min-w-0 tw-flex-1">
+        <a href="{% url 'scope:detail' change.pk %}" class="tw-font-medium"><span class="tw-font-mono tw-text-xs">{{ change.code }}</span> {{ change.title }}</a>
+        <p class="tw-mt-1 tw-line-clamp-2 tw-text-sm tw-text-muted">{{ change.justification }}</p>
+        <p class="tw-mt-1 tw-text-xs tw-text-muted">
+          {{ change.proposed_by.get_full_name|default:change.proposed_by.username }} · {{ change.created_at|date:"d M Y" }}
+          {% if change.n_deliverables %} · {{ change.n_deliverables }} entregable{{ change.n_deliverables|pluralize }} referenciado{{ change.n_deliverables|pluralize }}{% endif %}
+          {% if change.decided_by %} · decidió {{ change.decided_by.get_full_name|default:change.decided_by.username }}{% endif %}
+        </p>
+      </div>
+      <div class="tw-flex tw-flex-wrap tw-gap-1.5">
+        <span class="dt-chip {{ change.impact_chip }}">Impacto {{ change.get_impact_level_display|lower }}</span>
+        <span class="dt-chip {{ change.status_chip }}">{{ change.get_status_display }}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="tw-p-6 tw-text-center tw-text-muted">{% if request.GET %}Ninguna solicitud con ese estado.{% else %}Aún no hay solicitudes de cambio.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}
