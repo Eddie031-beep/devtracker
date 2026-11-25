@@ -631,30 +631,30 @@ avisen al grupo antes de subir migraciones.
 
 | Parte | Tarea | Responsable | PR |
 |---|---|---|---|
-| 3.1 | Sincronización de commits sin worker (comando `sync_github_commits`) | | #33 |
-| 3.2 | Métricas del proyecto y por integrante (commits, entregas, participación) | | #35 |
-| 3.3 | Evaluación de entregables con nota y retroalimentación | | #35 |
-| 3.4 | Dashboard por rol (estudiante, evaluador, líder, admin) | | #35 |
-| 3.5 | Documentación de la API (OpenAPI + Swagger UI) | | #35 |
+| 3.1 | Sincronización de commits sin worker (comando `sync_github_commits`) | Eddie Man | #33 |
+| 3.2 | Métricas del proyecto y por integrante (commits, entregas, participación) | Harold Morales | #35 |
+| 3.3 | Evaluación de entregables con nota y retroalimentación | Carlos Miranda | #35 |
+| 3.4 | Dashboard por rol (estudiante, evaluador, líder, admin) | Eliecias Cubilla | #35 |
+| 3.5 | Documentación de la API (OpenAPI + Swagger UI) | Brayan Quintero | #35 |
 
 ### Etapa 4: quién hace qué
 
 | Parte | Tarea | Responsable | PR |
 |---|---|---|---|
-| 4.1 | Notificaciones en la app (avisos y contador) | | #36 |
-| 4.2 | Notificaciones por correo y recordatorios de vencimiento | | #36 |
-| 4.3 | Reportes: CSV e imprimible | | #36 |
-| 4.4 | Iniciar sesión con GitHub (OAuth2) y perfil | | #36 |
+| 4.1 | Notificaciones en la app (avisos y contador) | Carlos Miranda | #36 |
+| 4.2 | Notificaciones por correo y recordatorios de vencimiento | Harold Morales | #36 |
+| 4.3 | Reportes: CSV e imprimible | Brayan Quintero | #36 |
+| 4.4 | Iniciar sesión con GitHub (OAuth2) y perfil | Eddie Man | #36 |
 
 ### Etapa 5 (examen semestral): quién hace qué
 
 | Parte | Tarea | Responsable | PR |
 |---|---|---|---|
-| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | | #44 |
-| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | | #45 |
-| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | | #46 |
-| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | | #47 |
-| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | | #48 |
+| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | Harold Morales | #44 |
+| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | Carlos Miranda | #45 |
+| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | Eddie Man | #46 |
+| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | Eliecias Cubilla | #47 |
+| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | Brayan Quintero | #48 |
 
 Orden de fusión: #44 primero; cada PR de la etapa 5 parte del anterior (#45 → #46 → #47 → #48).
 Datos de ejemplo de los cuatro módulos: `python manage.py cargar_semestral --proyecto 1`.
@@ -663,9 +663,9 @@ Datos de ejemplo de los cuatro módulos: `python manage.py cargar_semestral --pr
 
 | Tarea | Responsable | PR |
 |---|---|---|
-| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | | #38 |
-| Arreglos de la prueba integral | | #40 |
-| Versiones publicadas en `main` | | #37, #39, #41, #43 |
+| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | Eliecias Cubilla | #38 |
+| Arreglos de la prueba integral | Carlos Miranda | #40 |
+| Versiones publicadas en `main` | Eddie Man | #37, #39, #41, #43, #50 |
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
