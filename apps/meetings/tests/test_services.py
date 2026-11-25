@@ -96,3 +96,26 @@ class MeetingServiceTests(ProjectFixtureMixin, TestCase):
         self.assertEqual(agreement.status_label, "Vencido")
         agreement = update_agreement(agreement, self.member, status=Status.DONE)
         self.assertFalse(agreement.is_overdue)
+
+
+@override_settings(NOTIFICATIONS_SEND_EMAIL=False)
+class MeetingDateChangeTests(ProjectFixtureMixin, TestCase):
+    def test_no_mueve_la_reunion_despues_de_sus_acuerdos(self):
+        meeting = create_meeting(
+            self.project, self.leader, title="Revisión", held_at=timezone.now() - timedelta(days=10),
+            summary="Se revisaron los avances del grupo.", participants=[self.leader],
+        )
+        add_agreement(meeting, self.leader, description="Subir el informe", responsible=self.member,
+                      due_date=timezone.localdate() - timedelta(days=8))
+        with self.assertRaises(ValidationError):
+            update_meeting(meeting, self.leader, held_at=timezone.now() - timedelta(days=1))
+        # Un cambio que respeta los acuerdos sí se acepta
+        meeting = update_meeting(meeting, self.leader, held_at=timezone.now() - timedelta(days=9))
+        self.assertEqual(timezone.localdate(meeting.held_at), timezone.localdate() - timedelta(days=9))
+
+    def test_admin_no_cambia_el_estado_del_acuerdo(self):
+        from django.contrib.admin.sites import site
+
+        from ..admin import AgreementInline
+
+        self.assertIn("status", AgreementInline(Agreement, site).readonly_fields)

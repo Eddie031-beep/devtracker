@@ -6,7 +6,9 @@ from .models import Agreement, Meeting
 class AgreementInline(admin.TabularInline):
     model = Agreement
     extra = 0
-    fields = ("description", "responsible", "due_date", "status")
+    fields = ("description", "responsible", "due_date", "status", "completed_at", "completed_by")
+    # Cumplir un acuerdo guarda quién y cuándo y va a la auditoría: se hace desde la web o la API
+    readonly_fields = ("status", "completed_at", "completed_by")
 
 
 @admin.register(Meeting)

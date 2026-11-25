@@ -117,6 +117,14 @@ def update_meeting(meeting, actor, participants=None, **fields):
         raise PermissionDenied("Solo quien registró la reunión o el líder pueden editar el acta.")
     values = {f: fields.get(f, getattr(meeting, f)) for f in MEETING_FIELDS}
     _check_meeting(values["title"], values["held_at"], values["summary"])
+    # Mover la reunión a una fecha posterior no puede dejar acuerdos que vencen antes de ella
+    new_day = timezone.localdate(values["held_at"])
+    earlier = meeting.agreements.filter(due_date__lt=new_day).order_by("due_date").first()
+    if earlier:
+        raise ValidationError(
+            f"Hay acuerdos con fecha anterior al {new_day:%d/%m/%Y} (p. ej. «{earlier.description[:40]}», "
+            f"para el {earlier.due_date:%d/%m/%Y}). Cambia esas fechas primero."
+        )
     before = snapshot(meeting, MEETING_FIELDS)
     before_people = sorted(meeting.participants.values_list("pk", flat=True))
     for field, value in values.items():
