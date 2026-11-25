@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}DevTracker{% endblock %} · DevTracker</title>
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  {# Tailwind (prefijo tw-) para los módulos del semestral; se compila con scripts/build_css.sh #}
+  <link rel="stylesheet" href="{% static 'web/tailwind.css' %}">
   <script>
     // Tema antes de pintar (evita el destello): lo elegido, o el del sistema operativo
     (function () {

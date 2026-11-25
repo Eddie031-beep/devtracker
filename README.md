@@ -32,6 +32,23 @@ python manage.py runserver
 - Health check: http://localhost:8000/api/health/
 - JWT: `POST /api/auth/token/` y `POST /api/auth/token/refresh/`
 
+### Tailwind CSS (módulos del semestral)
+
+Las pantallas nuevas (incidencias, riesgos, cambios de alcance, reuniones) usan **Tailwind CSS**.
+Se compila con el CLI standalone de Tailwind, **sin Node**:
+
+```bash
+./scripts/build_css.sh           # genera apps/web/static/web/tailwind.css
+./scripts/build_css.sh --watch   # recompila mientras editas plantillas
+```
+
+- El binario se descarga solo la primera vez en `.bin/` (ignorado por git).
+- `tailwind.css` compilado se sube al repo: Railway no necesita compilar nada. El CI falla si quedó viejo.
+- Las clases llevan el prefijo `tw-` (`tw-flex`, `tw-gap-4`) para no chocar con `app.css`, y no se usa el
+  *preflight*, así las pantallas anteriores se ven igual. Los colores (`tw-bg-card`, `tw-text-muted`...) usan
+  las variables de `app.css`, por eso el modo oscuro funciona sin cambios.
+- Piezas comunes (`dt-card`, `dt-chip`, `dt-table`, `dt-tab`...) en `tailwind/input.css`.
+
 ### Endpoints de autenticación
 
 | Método | Ruta | Quién |
@@ -483,6 +500,7 @@ Nadie sube cambios con la cuenta de otro: así las métricas y la auditoría ref
 | **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
 | **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
 | **Cierre (v1.0.0)** | Interfaz final, pull requests e historial de ramas, administración desde la web, recuperar contraseña en la web, Excel, modo oscuro, calendario iCal, Gemini opcional | ✅ Completa |
+| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | 🚧 En curso |
 
 ### Etapa 1: quién hace qué
 
@@ -509,16 +527,44 @@ Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
 #19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):
 avisen al grupo antes de subir migraciones.
 
-### Etapas 3, 4 y cierre
+### Etapa 3: quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 3.1 | Sincronización de commits sin worker (comando `sync_github_commits`) | | #33 |
+| 3.2 | Métricas del proyecto y por integrante (commits, entregas, participación) | | #35 |
+| 3.3 | Evaluación de entregables con nota y retroalimentación | | #35 |
+| 3.4 | Dashboard por rol (estudiante, evaluador, líder, admin) | | #35 |
+| 3.5 | Documentación de la API (OpenAPI + Swagger UI) | | #35 |
+
+### Etapa 4: quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 4.1 | Notificaciones en la app (avisos y contador) | | #36 |
+| 4.2 | Notificaciones por correo y recordatorios de vencimiento | | #36 |
+| 4.3 | Reportes: CSV e imprimible | | #36 |
+| 4.4 | Iniciar sesión con GitHub (OAuth2) y perfil | | #36 |
+
+### Etapa 5 (examen semestral): quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | | |
+| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | | |
+| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | | |
+| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | | |
+| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | | |
+
+Orden de fusión: 5.0 primero; cada PR de la etapa 5 parte del anterior (5.1 → 5.2 → 5.3 → 5.4).
+
+### Cierre (v1.0.0)
 
 | Tarea | Responsable | PR |
 |---|---|---|
-| Sincronización de commits sin worker (comando) | Eddie Man | #33 |
-| Etapa 3: métricas, evaluación, dashboard por rol y docs de la API | Eddie Man | #35 |
-| Etapa 4: notificaciones, reportes y login con GitHub | Eddie Man | #36 |
-| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | Eddie Man | #38 |
-| Arreglos de la prueba integral | Eddie Man | #40 |
-| Versiones publicadas en `main` | Eddie Man | #37, #39, #41 |
+| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | | #38 |
+| Arreglos de la prueba integral | | #40 |
+| Versiones publicadas en `main` | | #37, #39, #41, #43 |
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.

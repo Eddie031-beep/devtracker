@@ -1,0 +1,19 @@
+{# Encabezado común de las páginas de los módulos: ruta, título y pestañas del proyecto. #}
+<nav class="crumbs" aria-label="Ruta">
+  <a href="{% url 'web:dashboard' %}">Proyectos</a><span aria-hidden="true">/</span>
+  <a href="{% url 'web:project' project.pk %}">{{ project.name }}</a><span aria-hidden="true">/</span>
+  <span>{{ title }}</span>
+</nav>
+<div class="tw-flex tw-flex-wrap tw-items-start tw-justify-between tw-gap-4">
+  <div class="tw-min-w-0">
+    <h1 class="tw-break-words">{{ title }}</h1>
+    {% if subtitle %}<p class="tw-mt-2 tw-text-muted">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if actions %}<div class="tw-flex tw-flex-wrap tw-gap-2">{{ actions }}</div>{% endif %}
+</div>
+<nav class="tw-flex tw-gap-1 tw-overflow-x-auto tw-border-0 tw-border-b tw-border-solid tw-border-line tw-pb-2" aria-label="Módulos del proyecto">
+  <a href="{% url 'web:project' project.pk %}" class="dt-tab">Resumen</a>
+  {% for item in modules %}
+  <a href="{{ item.url }}" class="dt-tab{% if item.module.key == active_module %} dt-tab-active{% endif %}"{% if item.module.key == active_module %} aria-current="page"{% endif %}>{{ item.module.label }}</a>
+  {% endfor %}
+</nav>
