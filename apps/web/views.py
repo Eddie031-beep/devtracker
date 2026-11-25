@@ -36,6 +36,7 @@ from .forms import (
 )
 from .history import build_graph
 from .ical import feed_url
+from .modules import modules_for
 
 User = get_user_model()
 Status = Deliverable.Status
@@ -47,6 +48,9 @@ LIVE = {"milestone__deleted_at__isnull": True, "milestone__project__deleted_at__
 TARGET_LABELS = {
     "project": "Proyecto", "milestone": "Hito", "deliverable": "Entregable", "projectmembership": "Integrante",
     "deliverableversion": "Versión", "evaluation": "Evaluación", "user": "Integrante",
+    # Examen semestral
+    "issue": "Incidencia", "risk": "Riesgo", "mitigation": "Mitigación", "changerequest": "Cambio de alcance",
+    "meeting": "Reunión", "agreement": "Acuerdo",
 }
 
 
@@ -204,6 +208,7 @@ def project_detail(request, pk):
             "can_manage": can_manage,
             "milestone_form": MilestoneForm() if can_manage else None,
             "deliverable_form": DeliverableForm(project=project) if can_manage else None,
+            "modules": modules_for(project),
             "now": timezone.now(),
             "nav": "home",
         },

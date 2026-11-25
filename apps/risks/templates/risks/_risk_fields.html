@@ -1,0 +1,34 @@
+{# Campos del riesgo con el nivel calculado en vivo (la misma regla que matrix.py; el servidor lo recalcula al guardar). #}
+{% include "web/_tw_field.html" with field=form.title %}
+{% include "web/_tw_field.html" with field=form.description %}
+<div class="tw-grid tw-gap-x-4 sm:tw-grid-cols-3">
+  {% include "web/_tw_field.html" with field=form.probability %}
+  {% include "web/_tw_field.html" with field=form.impact %}
+  <div class="tw-mb-4">
+    <span class="dt-label">Nivel de riesgo</span>
+    <p class="tw-flex tw-min-h-[44px] tw-items-center tw-gap-2" aria-live="polite">
+      <span class="dt-chip" data-risk-level></span><span class="tw-text-sm tw-text-muted" data-risk-score></span>
+    </p>
+  </div>
+</div>
+{% include "web/_tw_field.html" with field=form.owner %}
+<script>
+  (function () {
+    var form = document.currentScript.closest("form");
+    var p = form.querySelector("[data-risk-input=probability]");
+    var i = form.querySelector("[data-risk-input=impact]");
+    var chip = form.querySelector("[data-risk-level]");
+    var text = form.querySelector("[data-risk-score]");
+    var levels = [[2, "Bajo", "dt-chip-green"], [4, "Medio", "dt-chip-amber"], [9, "Alto", "dt-chip-red"]];
+    function update() {
+      var score = (parseInt(p.value, 10) || 0) * (parseInt(i.value, 10) || 0);
+      var level = levels.filter(function (l) { return score <= l[0]; })[0] || levels[2];
+      chip.className = "dt-chip " + level[2];
+      chip.textContent = level[1];
+      text.textContent = p.value + " × " + i.value + " = " + score + " de 9";
+    }
+    p.addEventListener("change", update);
+    i.addEventListener("change", update);
+    update();
+  })();
+</script>

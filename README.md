@@ -32,6 +32,23 @@ python manage.py runserver
 - Health check: http://localhost:8000/api/health/
 - JWT: `POST /api/auth/token/` y `POST /api/auth/token/refresh/`
 
+### Tailwind CSS (módulos del semestral)
+
+Las pantallas nuevas (incidencias, riesgos, cambios de alcance, reuniones) usan **Tailwind CSS**.
+Se compila con el CLI standalone de Tailwind, **sin Node**:
+
+```bash
+./scripts/build_css.sh           # genera apps/web/static/web/tailwind.css
+./scripts/build_css.sh --watch   # recompila mientras editas plantillas
+```
+
+- El binario se descarga solo la primera vez en `.bin/` (ignorado por git).
+- `tailwind.css` compilado se sube al repo: Railway no necesita compilar nada. El CI falla si quedó viejo.
+- Las clases llevan el prefijo `tw-` (`tw-flex`, `tw-gap-4`) para no chocar con `app.css`, y no se usa el
+  *preflight*, así las pantallas anteriores se ven igual. Los colores (`tw-bg-card`, `tw-text-muted`...) usan
+  las variables de `app.css`, por eso el modo oscuro funciona sin cambios.
+- Piezas comunes (`dt-card`, `dt-chip`, `dt-table`, `dt-tab`...) en `tailwind/input.css`.
+
 ### Endpoints de autenticación
 
 | Método | Ruta | Quién |
@@ -360,6 +377,106 @@ El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
 
+## Examen semestral: módulos de gestión del proyecto
+
+Cuatro módulos nuevos, cada uno con su página en el proyecto (sección **Gestión del proyecto**), su API
+documentada en Swagger, auditoría y avisos. Las pantallas usan Tailwind CSS; las validaciones están en el
+formulario (HTML5: `required`, `minlength`, rangos) **y** en el backend (formularios de Django, serializadores
+y las reglas de `services.py`). Datos de ejemplo: `python manage.py cargar_semestral --proyecto 1`.
+
+### 1. Incidencias de software
+
+`/proyectos/<id>/incidencias/` · código `apps/issues/`
+
+- Cualquier integrante registra un error con **título, descripción, prioridad** (baja, media, alta, crítica)
+  y **pasos para reproducirlo**.
+- El **líder asigna el responsable** (un integrante o el líder; nunca el evaluador).
+- Estados: **Abierta → En resolución → Resuelta → Verificada**. El responsable (o el líder) la empieza y la
+  marca resuelta explicando la solución.
+- El **evaluador verifica** la solución o la **reabre** indicando el motivo (vuelve a *Abierta*).
+- **Historial inmutable** (`IssueEvent`): cada paso, comentario y reapertura queda guardado; no se edita ni
+  se borra. Además todo va a la auditoría del proyecto. Eliminar es lógico y solo lo hace el líder.
+- Avisos: al líder y al evaluador cuando hay una incidencia nueva o resuelta; al responsable cuando se la
+  asignan o se reabre.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/issues/` | Integrante (filtros `status`, `priority`, `assignee`) |
+| GET, PATCH, DELETE | `/api/issues/<id>/` | Ver: integrante · Editar: quien reportó o líder · Borrar: líder |
+| POST | `/api/issues/<id>/assign/` | Líder (`assignee_id`) |
+| POST | `/api/issues/<id>/transition/` | `start`/`resolve`: responsable o líder · `verify`/`reopen`: evaluador |
+| GET, POST | `/api/issues/<id>/history/` | Integrante (POST agrega un comentario) |
+
+### 2. Riesgos del proyecto
+
+`/proyectos/<id>/riesgos/` · código `apps/risks/`
+
+- Los estudiantes registran riesgos con **descripción, probabilidad, impacto** (1 Baja/Bajo, 2 Media/Medio,
+  3 Alta/Alto) y **responsable**. El evaluador los consulta.
+- **Nivel = probabilidad × impacto** (`apps/risks/matrix.py`): **Bajo** 1–2, **Medio** 3–4, **Alto** 6–9.
+  Se calcula en el servidor al guardar (la base además rechaza valores fuera de 1–3) y el formulario lo
+  muestra en vivo mientras se eligen los valores.
+- La página muestra la **matriz 3×3** con los riesgos abiertos de cada celda; tocar una celda filtra la lista.
+- **Medidas de mitigación** con responsable y fecha; se marcan cumplidas. La primera medida pone el riesgo
+  *En mitigación*.
+- Estados: **Identificado, En mitigación, Materializado, Cerrado** (y reabrir un cerrado). Materializarse o
+  cerrarse exige comentario. Editar, cambiar el estado y mitigar: el líder o el responsable del riesgo.
+- Historial en la página del riesgo (sale de la auditoría) y avisos al responsable y, si el riesgo es alto o
+  se materializa, al líder y al evaluador.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/risks/` | Ver: integrante · Crear: estudiante (filtros `status`, `level`) |
+| GET | `/api/projects/<id>/risks/matrix/` | Integrante |
+| GET, PATCH, DELETE | `/api/risks/<id>/` | Editar: líder o responsable · Borrar: líder |
+| POST | `/api/risks/<id>/status/` | Líder o responsable (`status`, `comment`) |
+| GET, POST | `/api/risks/<id>/mitigations/` | Crear: líder o responsable |
+| POST | `/api/mitigations/<id>/done/` | Responsable de la medida, del riesgo o líder |
+
+### 3. Solicitudes de cambio de alcance
+
+`/proyectos/<id>/cambios/` · código `apps/scope/`
+
+- Los **estudiantes proponen** un cambio con **descripción, justificación, impacto esperado** (texto y nivel
+  bajo/medio/alto) y, si quieren, los entregables que tocaría.
+- El **evaluador aprueba o rechaza** con un comentario obligatorio; la decisión guarda quién y cuándo y es
+  definitiva. Quien propuso puede editarla o **retirarla** mientras está pendiente.
+- **Se conserva todo**: las solicitudes no se borran (ni desde el admin) y, una vez cerradas, el modelo no
+  permite modificarlas. Todo queda también en la auditoría.
+- **No modifica los entregables**: la lista de entregables es solo una referencia. Si el cambio se aprueba,
+  el líder los ajusta a mano y esa edición queda en la auditoría como cualquier otra.
+- Avisos al evaluador y al líder con cada propuesta, y a quien propuso con la decisión.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/change-requests/` | Ver: integrante · Proponer: estudiante (filtro `status`) |
+| GET, PATCH | `/api/change-requests/<id>/` | Editar: quien la propuso, si está pendiente (no hay DELETE) |
+| POST | `/api/change-requests/<id>/decide/` | Evaluador (`decision`: approved/rejected, `comment`) |
+| POST | `/api/change-requests/<id>/withdraw/` | Quien la propuso |
+
+### 4. Reuniones y acuerdos
+
+`/proyectos/<id>/reuniones/` · código `apps/meetings/`
+
+- Los estudiantes registran el **acta** de cada reunión: **fecha y hora**, lugar o enlace, **participantes**
+  (integrantes del proyecto) y **resumen de los temas tratados**. La fecha no puede ser futura.
+- Cada reunión tiene **acuerdos** con **responsable** (integrante o líder), **fecha de cumplimiento** y estado
+  **pendiente o cumplido** (se guarda quién y cuándo lo cumplió). Un pendiente con la fecha pasada se ve
+  como *Vencido*.
+- **Consultar** actas y acuerdos: todos los integrantes del proyecto, incluido el evaluador (un ajeno recibe 404).
+- **Actualizar** un acuerdo: solo su responsable o el líder; reasignarlo, solo el líder. Editar el acta y
+  registrar acuerdos: quien la registró o el líder. Cualquier otro recibe 403.
+- La lista de acuerdos se filtra por pendientes, vencidos, cumplidos, responsable o «míos». Todo queda en la
+  auditoría y el responsable recibe un aviso cuando le asignan un acuerdo.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/meetings/` | Ver: integrante · Registrar: estudiante (`participant_ids`) |
+| GET, PATCH, DELETE | `/api/meetings/<id>/` | Editar o borrar (lógico): quien la registró o líder |
+| POST | `/api/meetings/<id>/agreements/` | Quien registró la reunión o líder |
+| GET | `/api/projects/<id>/agreements/` | Integrante (filtros `status`: pending/done/overdue, `responsible`) |
+| GET, PATCH | `/api/agreements/<id>/` | Actualizar: responsable o líder (reasignar: líder) |
+
 ## Cobertura del MoSCoW (Laboratorio 3)
 
 | # | Requisito | Prioridad | Dónde se ve |
@@ -483,6 +600,7 @@ Nadie sube cambios con la cuenta de otro: así las métricas y la auditoría ref
 | **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
 | **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
 | **Cierre (v1.0.0)** | Interfaz final, pull requests e historial de ramas, administración desde la web, recuperar contraseña en la web, Excel, modo oscuro, calendario iCal, Gemini opcional | ✅ Completa |
+| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | ✅ Completa (PR #44–#48) |
 
 ### Etapa 1: quién hace qué
 
@@ -509,16 +627,45 @@ Orden sugerido: #17 y #18 primero; #19 y #20 en paralelo; #21 al final.
 #19, #20 y #21 cambian modelos compartidos (`apps/projects/models.py`, `apps/accounts/models.py`):
 avisen al grupo antes de subir migraciones.
 
-### Etapas 3, 4 y cierre
+### Etapa 3: quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 3.1 | Sincronización de commits sin worker (comando `sync_github_commits`) | | #33 |
+| 3.2 | Métricas del proyecto y por integrante (commits, entregas, participación) | | #35 |
+| 3.3 | Evaluación de entregables con nota y retroalimentación | | #35 |
+| 3.4 | Dashboard por rol (estudiante, evaluador, líder, admin) | | #35 |
+| 3.5 | Documentación de la API (OpenAPI + Swagger UI) | | #35 |
+
+### Etapa 4: quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 4.1 | Notificaciones en la app (avisos y contador) | | #36 |
+| 4.2 | Notificaciones por correo y recordatorios de vencimiento | | #36 |
+| 4.3 | Reportes: CSV e imprimible | | #36 |
+| 4.4 | Iniciar sesión con GitHub (OAuth2) y perfil | | #36 |
+
+### Etapa 5 (examen semestral): quién hace qué
+
+| Parte | Tarea | Responsable | PR |
+|---|---|---|---|
+| 5.0 | Base: Tailwind CSS compilado, registro de módulos del proyecto y permisos comunes | | #44 |
+| 5.1 | Gestión de incidencias de software (registro, responsable, estados, verificación y reapertura con historial) | | #45 |
+| 5.2 | Gestión de riesgos (probabilidad × impacto 1–3, matriz de nivel, mitigación y estados) | | #46 |
+| 5.3 | Solicitudes de cambio de alcance (propuesta, decisión del evaluador, sin tocar entregables) | | #47 |
+| 5.4 | Reuniones y acuerdos (actas con participantes, acuerdos con responsable y fecha) | | #48 |
+
+Orden de fusión: #44 primero; cada PR de la etapa 5 parte del anterior (#45 → #46 → #47 → #48).
+Datos de ejemplo de los cuatro módulos: `python manage.py cargar_semestral --proyecto 1`.
+
+### Cierre (v1.0.0)
 
 | Tarea | Responsable | PR |
 |---|---|---|
-| Sincronización de commits sin worker (comando) | Eddie Man | #33 |
-| Etapa 3: métricas, evaluación, dashboard por rol y docs de la API | Eddie Man | #35 |
-| Etapa 4: notificaciones, reportes y login con GitHub | Eddie Man | #36 |
-| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | Eddie Man | #38 |
-| Arreglos de la prueba integral | Eddie Man | #40 |
-| Versiones publicadas en `main` | Eddie Man | #37, #39, #41 |
+| Interfaz final, pull requests, historial y requisitos restantes del MoSCoW | | #38 |
+| Arreglos de la prueba integral | | #40 |
+| Versiones publicadas en `main` | | #37, #39, #41, #43 |
 
 El detalle y los criterios de aceptación de cada tarea están en los Issues del repo.
 Lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.

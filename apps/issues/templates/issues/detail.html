@@ -1,0 +1,92 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}{{ issue.code }} · {{ issue.title }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title=issue.title %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_340px]">
+  <div class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card">
+      <div class="tw-mb-4 tw-flex tw-flex-wrap tw-items-center tw-gap-2">
+        <span class="tw-font-mono tw-text-sm tw-text-muted">{{ issue.code }}</span>
+        <span class="dt-chip {{ issue.status_chip }}">{{ issue.get_status_display }}</span>
+        <span class="dt-chip {{ issue.priority_chip }}">Prioridad {{ issue.get_priority_display|lower }}</span>
+      </div>
+      <h2 class="tw-mb-2 tw-text-base">Descripción</h2>
+      <p class="tw-mb-5 tw-whitespace-pre-line tw-break-words">{{ issue.description }}</p>
+      <h2 class="tw-mb-2 tw-text-base">Pasos para reproducirlo</h2>
+      <p class="tw-whitespace-pre-line tw-break-words tw-rounded-lg tw-bg-line-2 tw-p-3 tw-font-mono tw-text-[13px]">{{ issue.steps_to_reproduce }}</p>
+      {% if can_edit or can_delete %}
+      <div class="tw-mt-5 tw-flex tw-flex-wrap tw-gap-2">
+        {% if can_edit %}<a href="{% url 'issues:edit' issue.pk %}" class="btn secondary sm">Editar</a>{% endif %}
+        {% if can_delete %}
+        <form method="post" action="{% url 'issues:delete' issue.pk %}" onsubmit="return confirm('¿Eliminar {{ issue.code }}? Su historial se conserva.')">{% csrf_token %}
+          <button type="submit" class="btn danger sm">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="dt-card" aria-labelledby="history-title">
+      <h2 id="history-title" class="tw-mb-4">Historial</h2>
+      <ol class="tw-m-0 tw-list-none tw-p-0">
+        {% for event in events %}
+        <li class="tw-relative tw-border-0 tw-border-l-2 tw-border-solid tw-border-line tw-pb-5 tw-pl-5 last:tw-pb-0">
+          <span class="tw-absolute -tw-left-[7px] tw-top-1 tw-h-3 tw-w-3 tw-rounded-full {% if event.kind == 'reopened' %}tw-bg-red-500{% elif event.kind == 'verified' %}tw-bg-green-500{% elif event.kind == 'commented' %}tw-bg-slate-400{% else %}tw-bg-accent{% endif %}" aria-hidden="true"></span>
+          <p class="tw-text-sm"><strong>{{ event.actor.get_full_name|default:event.actor.username }}</strong> · {{ event.get_kind_display|lower }}{% if event.data.assignee %}: {{ event.data.assignee }}{% elif event.kind == 'assigned' %}: sin responsable{% endif %}{% if event.to_status and event.kind != 'created' %} → <span class="dt-chip {{ issue.STATUS_CHIPS|get_item:event.to_status }}">{{ event.get_to_status_display }}</span>{% endif %}</p>
+          <p class="tw-text-xs tw-text-muted">{{ event.created_at|date:"d M Y · H:i" }}{% if event.data.fields %} · cambió {{ event.data.fields|join:", " }}{% endif %}</p>
+          {% if event.comment %}<p class="tw-mt-1.5 tw-whitespace-pre-line tw-break-words tw-rounded-lg tw-bg-line-2 tw-px-3 tw-py-2 tw-text-sm">{{ event.comment }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      <form method="post" action="{% url 'issues:comment' issue.pk %}" class="tw-mt-5">{% csrf_token %}
+        <label class="dt-label" for="{{ comment_form.comment.id_for_label }}">Agregar comentario</label>
+        {{ comment_form.comment }}
+        <button type="submit" class="btn secondary sm tw-mt-2">Comentar</button>
+      </form>
+    </section>
+  </div>
+
+  <aside class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card">
+      <dl class="tw-m-0 tw-grid tw-grid-cols-[auto_1fr] tw-gap-x-4 tw-gap-y-2 tw-text-sm">
+        <dt class="tw-text-muted">Reportada por</dt><dd class="tw-m-0">{{ issue.reported_by.get_full_name|default:issue.reported_by.username }}</dd>
+        <dt class="tw-text-muted">Fecha</dt><dd class="tw-m-0">{{ issue.created_at|date:"d M Y · H:i" }}</dd>
+        <dt class="tw-text-muted">Responsable</dt><dd class="tw-m-0">{% if issue.assignee %}{{ issue.assignee.get_full_name|default:issue.assignee.username }}{% else %}<span class="tw-text-muted">Sin asignar</span>{% endif %}</dd>
+        {% if issue.resolved_at %}<dt class="tw-text-muted">Resuelta</dt><dd class="tw-m-0">{{ issue.resolved_at|date:"d M Y · H:i" }}</dd>{% endif %}
+        {% if issue.verified_at %}<dt class="tw-text-muted">Verificada</dt><dd class="tw-m-0">{{ issue.verified_at|date:"d M Y · H:i" }}</dd>{% endif %}
+      </dl>
+      {% if can_assign %}
+      <form method="post" action="{% url 'issues:assign' issue.pk %}" class="tw-mt-4 tw-flex tw-items-end tw-gap-2">{% csrf_token %}
+        <div class="tw-min-w-0 tw-flex-1"><label class="dt-label" for="{{ assign_form.assignee.id_for_label }}">Cambiar responsable</label>{{ assign_form.assignee }}</div>
+        <button type="submit" class="btn secondary">Asignar</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="dt-card" aria-labelledby="flow-title">
+      <h2 id="flow-title" class="tw-mb-3 tw-text-base">Flujo</h2>
+      <ol class="tw-m-0 tw-mb-4 tw-flex tw-list-none tw-flex-col tw-gap-1 tw-p-0 tw-text-sm">
+        {% for value, label in flow %}
+        <li class="tw-flex tw-items-center tw-gap-2{% if value == issue.status %} tw-font-semibold{% else %} tw-text-muted{% endif %}">
+          <span class="tw-h-2.5 tw-w-2.5 tw-rounded-full{% if value == issue.status %} tw-bg-accent{% else %} tw-border tw-border-solid tw-border-field{% endif %}" aria-hidden="true"></span>{{ label }}{% if value == issue.status %} (actual){% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% for action in actions %}
+      <form method="post" action="{% url 'issues:transition' issue.pk %}" class="tw-mb-3 tw-border-0 tw-border-t tw-border-solid tw-border-line-2 tw-pt-3">{% csrf_token %}
+        <input type="hidden" name="action" value="{{ action.key }}">
+        {% if action.needs_comment %}
+        <label class="dt-label" for="c-{{ action.key }}">{{ action.help }}</label>
+        <textarea id="c-{{ action.key }}" name="comment" rows="2" required minlength="5" maxlength="2000"></textarea>
+        {% else %}<p class="dt-help tw-mb-2 tw-mt-0">{{ action.help }}</p>{% endif %}
+        <button type="submit" class="btn{% if action.key == 'reopen' %} danger{% endif %} block{% if action.needs_comment %} tw-mt-2{% endif %}">{{ action.label }}</button>
+      </form>
+      {% empty %}
+      <p class="tw-text-sm tw-text-muted">{% if issue.status == "verified" %}La solución está verificada. El evaluador puede reabrirla si el error vuelve.{% elif issue.status == "resolved" %}Falta que el evaluador verifique la solución.{% elif not issue.assignee %}Falta que el líder asigne un responsable.{% else %}La avanza su responsable.{% endif %}</p>
+      {% endfor %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

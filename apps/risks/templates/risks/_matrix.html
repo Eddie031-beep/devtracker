@@ -1,0 +1,33 @@
+{# Matriz 3×3 de probabilidad (filas, de alta a baja) por impacto (columnas). link=True: cada celda filtra la lista. #}
+<div class="tw-overflow-x-auto">
+  <table class="tw-w-full tw-min-w-[300px] tw-border-separate tw-border-spacing-1 tw-text-center tw-text-sm" aria-label="Matriz de probabilidad e impacto">
+    <thead>
+      <tr>
+        <th class="tw-w-24 tw-p-1 tw-text-left tw-text-xs tw-font-medium tw-text-muted" scope="col">Prob. \ Impacto</th>
+        {% for value, label in grid.impacts %}<th class="tw-p-1 tw-text-xs tw-font-medium tw-text-muted" scope="col">{{ value }} · {{ label }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in grid.rows %}
+      <tr>
+        <th class="tw-p-1 tw-text-left tw-text-xs tw-font-medium tw-text-muted" scope="row">{{ row.probability }} · {{ row.label }}</th>
+        {% for cell in row.cells %}
+        <td class="tw-h-16 tw-rounded-lg tw-p-0 {{ cell.css }}{% if cell.selected %} tw-ring-2 tw-ring-accent{% endif %}">
+          {% if link %}
+          <a href="?p={{ cell.probability }}&amp;i={{ cell.impact }}" class="tw-flex tw-h-full tw-min-h-[64px] tw-flex-col tw-items-center tw-justify-center tw-text-inherit hover:tw-no-underline" title="{{ cell.level_label }} ({{ cell.score }}): {{ cell.risks|length }} riesgo{{ cell.risks|length|pluralize }}" style="color: inherit">
+            <span class="tw-text-lg tw-font-semibold">{{ cell.risks|length }}</span>
+            <span class="tw-text-[11px] tw-opacity-80">{{ cell.level_label }} · {{ cell.score }}</span>
+          </a>
+          {% else %}
+          <div class="tw-flex tw-h-full tw-min-h-[64px] tw-flex-col tw-items-center tw-justify-center">
+            {% if cell.risks %}<span class="tw-text-lg tw-font-semibold" aria-label="Este riesgo">●</span>{% endif %}
+            <span class="tw-text-[11px] tw-opacity-80">{{ cell.level_label }} · {{ cell.score }}</span>
+          </div>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

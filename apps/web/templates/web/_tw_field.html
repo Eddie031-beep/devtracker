@@ -1,0 +1,7 @@
+{# Un campo de formulario con Tailwind: etiqueta, control, ayuda y errores. Uso: {% include "web/_tw_field.html" with field=form.title %} #}
+<div class="tw-mb-4">
+  <label for="{{ field.id_for_label }}" class="dt-label">{{ field.label }}{% if field.field.required %} <span class="tw-text-red-600" aria-hidden="true">*</span>{% endif %}</label>
+  {{ field }}
+  {% if field.help_text %}<p class="dt-help">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="dt-error">{{ error }}</p>{% endfor %}
+</div>

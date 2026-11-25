@@ -1,0 +1,25 @@
+/* Fuente de Tailwind. No edites apps/web/static/web/tailwind.css a mano: corre scripts/build_css.sh */
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Piezas comunes de los módulos del semestral (incidencias, riesgos, cambios de alcance, reuniones) */
+  .dt-card { @apply tw-rounded-card tw-border tw-border-solid tw-border-line tw-bg-card tw-p-5 sm:tw-px-6; }
+  .dt-card-flush { @apply tw-rounded-card tw-border tw-border-solid tw-border-line tw-bg-card tw-overflow-hidden; }
+  .dt-title { @apply tw-text-base tw-font-semibold tw-text-ink; }
+  .dt-label { @apply tw-mb-1.5 tw-block tw-text-[13px] tw-font-medium tw-text-ink-2; }
+  .dt-help { @apply tw-mt-1 tw-text-xs tw-text-muted; }
+  .dt-error { @apply tw-mt-1 tw-text-xs tw-font-medium tw-text-red-700 dark:tw-text-red-300; }
+  .dt-table { @apply tw-w-full tw-border-collapse tw-text-sm; }
+  .dt-table th { @apply tw-border-0 tw-border-b tw-border-solid tw-border-line tw-px-4 tw-py-2.5 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wide tw-text-muted; }
+  .dt-table td { @apply tw-border-0 tw-border-b tw-border-solid tw-border-line-2 tw-px-4 tw-py-3 tw-align-top; }
+  .dt-chip { @apply tw-inline-flex tw-h-6 tw-items-center tw-whitespace-nowrap tw-rounded-full tw-px-2.5 tw-text-xs tw-font-medium; }
+  .dt-chip-gray { @apply tw-bg-slate-100 tw-text-slate-700 dark:tw-bg-slate-800 dark:tw-text-slate-300; }
+  .dt-chip-blue { @apply tw-bg-blue-100 tw-text-blue-800 dark:tw-bg-blue-950 dark:tw-text-blue-300; }
+  .dt-chip-green { @apply tw-bg-green-100 tw-text-green-800 dark:tw-bg-green-950 dark:tw-text-green-300; }
+  .dt-chip-amber { @apply tw-bg-amber-100 tw-text-amber-800 dark:tw-bg-amber-950 dark:tw-text-amber-300; }
+  .dt-chip-red { @apply tw-bg-red-100 tw-text-red-800 dark:tw-bg-red-950 dark:tw-text-red-300; }
+  .dt-chip-violet { @apply tw-bg-violet-100 tw-text-violet-800 dark:tw-bg-violet-950 dark:tw-text-violet-300; }
+  .dt-tab { @apply tw-inline-flex tw-min-h-[40px] tw-items-center tw-gap-2 tw-whitespace-nowrap tw-rounded-lg tw-px-3 tw-text-sm tw-font-medium tw-text-ink-2 hover:tw-bg-line-2 hover:tw-text-ink hover:tw-no-underline; }
+  .dt-tab-active { @apply tw-bg-accent-soft tw-text-accent dark:tw-text-blue-200; }
+}

@@ -1,0 +1,103 @@
+{% extends "web/base.html" %}
+{% block title %}{{ risk.code }} · {{ risk.title }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title=risk.title %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_360px]">
+  <div class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card">
+      <div class="tw-mb-4 tw-flex tw-flex-wrap tw-items-center tw-gap-2">
+        <span class="tw-font-mono tw-text-sm tw-text-muted">{{ risk.code }}</span>
+        <span class="dt-chip {{ risk.level_chip }}">Nivel {{ risk.level_label|lower }} · {{ risk.score }}/9</span>
+        <span class="dt-chip {{ risk.status_chip }}">{{ risk.get_status_display }}</span>
+      </div>
+      <p class="tw-mb-4 tw-whitespace-pre-line tw-break-words">{{ risk.description }}</p>
+      <dl class="tw-m-0 tw-grid tw-grid-cols-[auto_1fr] tw-gap-x-4 tw-gap-y-2 tw-text-sm">
+        <dt class="tw-text-muted">Probabilidad</dt><dd class="tw-m-0">{{ risk.probability }} · {{ risk.get_probability_display }}</dd>
+        <dt class="tw-text-muted">Impacto</dt><dd class="tw-m-0">{{ risk.impact }} · {{ risk.get_impact_display }}</dd>
+        <dt class="tw-text-muted">Responsable</dt><dd class="tw-m-0">{{ risk.owner.get_full_name|default:risk.owner.username }}</dd>
+        <dt class="tw-text-muted">Registrado por</dt><dd class="tw-m-0">{{ risk.created_by.get_full_name|default:risk.created_by.username }} · {{ risk.created_at|date:"d M Y" }}</dd>
+      </dl>
+      {% if can_manage or can_delete %}
+      <div class="tw-mt-5 tw-flex tw-flex-wrap tw-gap-2">
+        {% if can_manage %}<a href="{% url 'risks:edit' risk.pk %}" class="btn secondary sm">Editar</a>{% endif %}
+        {% if can_delete %}
+        <form method="post" action="{% url 'risks:delete' risk.pk %}" onsubmit="return confirm('¿Eliminar {{ risk.code }}? Su historial queda en la auditoría.')">{% csrf_token %}
+          <button type="submit" class="btn danger sm">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="dt-card" aria-labelledby="mit-title">
+      <h2 id="mit-title" class="tw-mb-4">Medidas de mitigación</h2>
+      {% if mitigations %}
+      <ul class="tw-m-0 tw-flex tw-list-none tw-flex-col tw-gap-3 tw-p-0">
+        {% for m in mitigations %}
+        <li class="tw-flex tw-flex-wrap tw-items-start tw-justify-between tw-gap-3 tw-rounded-lg tw-border tw-border-solid tw-border-line tw-p-3">
+          <div class="tw-min-w-0 tw-flex-1">
+            <p class="tw-whitespace-pre-line tw-break-words{% if m.done %} tw-text-muted tw-line-through{% endif %}">{{ m.description }}</p>
+            <p class="tw-mt-1 tw-text-xs tw-text-muted">
+              {% if m.responsible %}{{ m.responsible.get_full_name|default:m.responsible.username }}{% else %}Sin responsable{% endif %}
+              {% if m.due_date %} · para el {{ m.due_date|date:"d M Y" }}{% endif %}
+              {% if m.done %} · cumplida el {{ m.done_at|date:"d M" }}{% endif %}
+            </p>
+          </div>
+          {% if m.done %}<span class="dt-chip dt-chip-green">Cumplida</span>{% else %}<span class="dt-chip dt-chip-amber">Pendiente</span>{% endif %}
+          {% if m.can_toggle %}
+          <form method="post" action="{% url 'risks:mitigation_toggle' m.pk %}">{% csrf_token %}
+            <input type="hidden" name="done" value="{% if m.done %}0{% else %}1{% endif %}">
+            <button type="submit" class="btn secondary sm">{% if m.done %}Marcar pendiente{% else %}Marcar cumplida{% endif %}</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="tw-text-sm tw-text-muted">Aún no hay medidas para este riesgo.</p>{% endif %}
+
+      {% if mitigation_form %}
+      <form method="post" action="{% url 'risks:mitigation_add' risk.pk %}" class="tw-mt-5 tw-border-0 tw-border-t tw-border-solid tw-border-line-2 tw-pt-4">{% csrf_token %}
+        <h3 class="tw-mb-3">Nueva medida</h3>
+        {% include "web/_tw_field.html" with field=mitigation_form.description %}
+        <div class="tw-grid tw-gap-x-4 sm:tw-grid-cols-2">
+          {% include "web/_tw_field.html" with field=mitigation_form.responsible %}
+          {% include "web/_tw_field.html" with field=mitigation_form.due_date %}
+        </div>
+        <button type="submit" class="btn">Agregar medida</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="dt-card" aria-labelledby="history-title">
+      <h2 id="history-title" class="tw-mb-4">Historial</h2>
+      <ol class="tw-m-0 tw-flex tw-list-none tw-flex-col tw-gap-3 tw-p-0">
+        {% for item in history %}
+        <li class="tw-border-0 tw-border-l-2 tw-border-solid tw-border-line tw-pl-4">
+          <p class="tw-text-sm"><strong>{{ item.log.actor.get_full_name|default:item.log.actor.username|default:"Sistema" }}</strong> · {{ item.label|lower }}{% if item.status %} → {{ item.status }}{% endif %}</p>
+          <p class="tw-text-xs tw-text-muted">{{ item.log.created_at|date:"d M Y · H:i" }}</p>
+          {% if item.comment %}<p class="tw-mt-1 tw-whitespace-pre-line tw-break-words tw-text-sm">{{ item.comment }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+
+  <aside class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card" aria-labelledby="pos-title">
+      <h2 id="pos-title" class="tw-mb-3 tw-text-base">Posición en la matriz</h2>
+      {% include "risks/_matrix.html" with link=False %}
+    </section>
+    {% if status_form %}
+    <section class="dt-card" aria-labelledby="status-title">
+      <h2 id="status-title" class="tw-mb-3 tw-text-base">Estado del riesgo</h2>
+      <form method="post" action="{% url 'risks:status' risk.pk %}">{% csrf_token %}
+        {% include "web/_tw_field.html" with field=status_form.status %}
+        {% include "web/_tw_field.html" with field=status_form.comment %}
+        <button type="submit" class="btn block">Cambiar estado</button>
+      </form>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

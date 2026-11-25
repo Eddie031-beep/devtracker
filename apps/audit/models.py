@@ -34,6 +34,31 @@ class Action(models.TextChoices):
     VERSION_CREATED = "version.created", "Nueva versión de entregable"
     # Etapa 3: evaluación con nota
     DELIVERABLE_EVALUATED = "deliverable.evaluated", "Entregable evaluado"
+    # Examen semestral: incidencias de software
+    ISSUE_CREATED = "issue.created", "Incidencia registrada"
+    ISSUE_UPDATED = "issue.updated", "Incidencia editada"
+    ISSUE_ASSIGNED = "issue.assigned", "Responsable de incidencia"
+    ISSUE_STATUS_CHANGED = "issue.status_changed", "Cambio de estado de incidencia"
+    ISSUE_DELETED = "issue.deleted", "Incidencia eliminada"
+    # Examen semestral: riesgos del proyecto
+    RISK_CREATED = "risk.created", "Riesgo registrado"
+    RISK_UPDATED = "risk.updated", "Riesgo editado"
+    RISK_STATUS_CHANGED = "risk.status_changed", "Cambio de estado de riesgo"
+    RISK_DELETED = "risk.deleted", "Riesgo eliminado"
+    MITIGATION_ADDED = "mitigation.added", "Medida de mitigación registrada"
+    MITIGATION_UPDATED = "mitigation.updated", "Medida de mitigación actualizada"
+    # Examen semestral: solicitudes de cambio de alcance
+    CHANGE_REQUESTED = "change.requested", "Cambio de alcance propuesto"
+    CHANGE_UPDATED = "change.updated", "Cambio de alcance editado"
+    CHANGE_WITHDRAWN = "change.withdrawn", "Cambio de alcance retirado"
+    CHANGE_DECIDED = "change.decided", "Cambio de alcance decidido"
+    # Examen semestral: reuniones y acuerdos
+    MEETING_CREATED = "meeting.created", "Reunión registrada"
+    MEETING_UPDATED = "meeting.updated", "Acta editada"
+    MEETING_DELETED = "meeting.deleted", "Reunión eliminada"
+    AGREEMENT_CREATED = "agreement.created", "Acuerdo registrado"
+    AGREEMENT_UPDATED = "agreement.updated", "Acuerdo editado"
+    AGREEMENT_STATUS_CHANGED = "agreement.status_changed", "Cambio de estado de acuerdo"
 
 
 class AuditQuerySet(models.QuerySet):
