@@ -1,0 +1,62 @@
+{% extends "web/base.html" %}
+{% block title %}Incidencias · {{ project.name }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title="Incidencias" subtitle="Errores del software: quién los reporta, quién los resuelve y la verificación del evaluador." %}
+
+<section class="tw-grid tw-grid-cols-2 tw-gap-3 md:tw-grid-cols-4" aria-label="Resumen por estado">
+  {% for value, label, n in summary %}
+  <a href="?status={{ value }}" class="dt-card tw-flex tw-flex-col tw-gap-1 tw-text-ink hover:tw-border-accent hover:tw-no-underline">
+    <span class="tw-text-2xl tw-font-semibold">{{ n }}</span>
+    <span class="tw-text-sm tw-text-muted">{{ label }}</span>
+  </a>
+  {% endfor %}
+</section>
+
+<details class="dt-card"{% if open_form or form.errors %} open{% endif %}>
+  <summary class="tw-cursor-pointer tw-font-semibold">Registrar incidencia</summary>
+  <form method="post" class="tw-mt-4">{% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="dt-error">{{ error }}</p>{% endfor %}
+    <div class="tw-grid tw-gap-x-4 md:tw-grid-cols-3">
+      <div class="md:tw-col-span-2">{% include "web/_tw_field.html" with field=form.title %}</div>
+      {% include "web/_tw_field.html" with field=form.priority %}
+    </div>
+    <div class="tw-grid tw-gap-x-4 md:tw-grid-cols-2">
+      {% include "web/_tw_field.html" with field=form.description %}
+      {% include "web/_tw_field.html" with field=form.steps_to_reproduce %}
+    </div>
+    {% if form.assignee %}<div class="md:tw-w-1/3">{% include "web/_tw_field.html" with field=form.assignee %}</div>{% endif %}
+    <button type="submit" class="btn">Registrar</button>
+  </form>
+</details>
+
+<section class="dt-card-flush">
+  <form method="get" class="tw-flex tw-flex-wrap tw-items-end tw-gap-3 tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4">
+    <div class="tw-min-w-[150px] tw-flex-1"><label class="dt-label" for="{{ filters.status.id_for_label }}">Estado</label>{{ filters.status }}</div>
+    <div class="tw-min-w-[150px] tw-flex-1"><label class="dt-label" for="{{ filters.priority.id_for_label }}">Prioridad</label>{{ filters.priority }}</div>
+    <div class="tw-min-w-[150px] tw-flex-1"><label class="dt-label" for="{{ filters.assignee.id_for_label }}">Responsable</label>{{ filters.assignee }}</div>
+    <label class="tw-flex tw-min-h-[44px] tw-items-center tw-gap-2 tw-text-sm"><input type="checkbox" name="mias" value="1"{% if request.GET.mias %} checked{% endif %}> Asignadas a mí</label>
+    <button type="submit" class="btn secondary">Filtrar</button>
+    {% if filtered %}<a href="?" class="tw-text-sm">Quitar filtros</a>{% endif %}
+  </form>
+  {% if issues %}
+  <div class="tw-overflow-x-auto">
+    <table class="dt-table">
+      <thead><tr><th>Incidencia</th><th>Prioridad</th><th>Estado</th><th>Responsable</th><th>Reportada</th></tr></thead>
+      <tbody>
+        {% for issue in issues %}
+        <tr>
+          <td class="tw-min-w-[220px]"><a href="{% url 'issues:detail' issue.pk %}"><span class="tw-font-mono tw-text-xs">{{ issue.code }}</span> {{ issue.title }}</a></td>
+          <td><span class="dt-chip {{ issue.priority_chip }}">{{ issue.get_priority_display }}</span></td>
+          <td><span class="dt-chip {{ issue.status_chip }}">{{ issue.get_status_display }}</span></td>
+          <td>{% if issue.assignee %}{{ issue.assignee.get_full_name|default:issue.assignee.username }}{% else %}<span class="tw-text-muted">Sin asignar</span>{% endif %}</td>
+          <td class="tw-whitespace-nowrap tw-text-muted">{{ issue.reported_by.get_full_name|default:issue.reported_by.username }} · {{ issue.created_at|date:"d M" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="tw-p-6 tw-text-center tw-text-muted">{% if filtered %}Ninguna incidencia coincide con los filtros.{% else %}Aún no hay incidencias. Regístralas cuando encuentres un error.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -34,6 +34,12 @@ class Action(models.TextChoices):
     VERSION_CREATED = "version.created", "Nueva versión de entregable"
     # Etapa 3: evaluación con nota
     DELIVERABLE_EVALUATED = "deliverable.evaluated", "Entregable evaluado"
+    # Examen semestral: incidencias de software
+    ISSUE_CREATED = "issue.created", "Incidencia registrada"
+    ISSUE_UPDATED = "issue.updated", "Incidencia editada"
+    ISSUE_ASSIGNED = "issue.assigned", "Responsable de incidencia"
+    ISSUE_STATUS_CHANGED = "issue.status_changed", "Cambio de estado de incidencia"
+    ISSUE_DELETED = "issue.deleted", "Incidencia eliminada"
 
 
 class AuditQuerySet(models.QuerySet):

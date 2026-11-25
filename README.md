@@ -377,6 +377,36 @@ El borrado es lógico: nada se pierde de la base de datos.
 
 Correr las pruebas: `python manage.py test`
 
+## Examen semestral: módulos de gestión del proyecto
+
+Cuatro módulos nuevos, cada uno con su página en el proyecto (sección **Gestión del proyecto**), su API
+documentada en Swagger, auditoría y avisos. Las pantallas usan Tailwind CSS; las validaciones están en el
+formulario (HTML5: `required`, `minlength`, rangos) **y** en el backend (formularios de Django, serializadores
+y las reglas de `services.py`). Datos de ejemplo: `python manage.py cargar_semestral --proyecto 1`.
+
+### 1. Incidencias de software
+
+`/proyectos/<id>/incidencias/` · código `apps/issues/`
+
+- Cualquier integrante registra un error con **título, descripción, prioridad** (baja, media, alta, crítica)
+  y **pasos para reproducirlo**.
+- El **líder asigna el responsable** (un integrante o el líder; nunca el evaluador).
+- Estados: **Abierta → En resolución → Resuelta → Verificada**. El responsable (o el líder) la empieza y la
+  marca resuelta explicando la solución.
+- El **evaluador verifica** la solución o la **reabre** indicando el motivo (vuelve a *Abierta*).
+- **Historial inmutable** (`IssueEvent`): cada paso, comentario y reapertura queda guardado; no se edita ni
+  se borra. Además todo va a la auditoría del proyecto. Eliminar es lógico y solo lo hace el líder.
+- Avisos: al líder y al evaluador cuando hay una incidencia nueva o resuelta; al responsable cuando se la
+  asignan o se reabre.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/issues/` | Integrante (filtros `status`, `priority`, `assignee`) |
+| GET, PATCH, DELETE | `/api/issues/<id>/` | Ver: integrante · Editar: quien reportó o líder · Borrar: líder |
+| POST | `/api/issues/<id>/assign/` | Líder (`assignee_id`) |
+| POST | `/api/issues/<id>/transition/` | `start`/`resolve`: responsable o líder · `verify`/`reopen`: evaluador |
+| GET, POST | `/api/issues/<id>/history/` | Integrante (POST agrega un comentario) |
+
 ## Cobertura del MoSCoW (Laboratorio 3)
 
 | # | Requisito | Prioridad | Dónde se ve |
