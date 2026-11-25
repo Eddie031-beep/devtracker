@@ -9,8 +9,16 @@ class ImmutableChangeRequestError(Exception):
 
 
 class ChangeRequestQuerySet(models.QuerySet):
+    """Sin borrados ni cambios masivos: `.update()` y `.bulk_update()` se saltarían `save()` y su protección."""
+
     def delete(self):
         raise ImmutableChangeRequestError("Las solicitudes de cambio se conservan: no se pueden borrar.")
+
+    def update(self, **kwargs):
+        raise ImmutableChangeRequestError("Las solicitudes se modifican una por una (services.py), no en bloque.")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ImmutableChangeRequestError("Las solicitudes se modifican una por una (services.py), no en bloque.")
 
 
 class ChangeRequest(TimeStampedModel):
