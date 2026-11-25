@@ -52,6 +52,13 @@ class Action(models.TextChoices):
     CHANGE_UPDATED = "change.updated", "Cambio de alcance editado"
     CHANGE_WITHDRAWN = "change.withdrawn", "Cambio de alcance retirado"
     CHANGE_DECIDED = "change.decided", "Cambio de alcance decidido"
+    # Examen semestral: reuniones y acuerdos
+    MEETING_CREATED = "meeting.created", "Reunión registrada"
+    MEETING_UPDATED = "meeting.updated", "Acta editada"
+    MEETING_DELETED = "meeting.deleted", "Reunión eliminada"
+    AGREEMENT_CREATED = "agreement.created", "Acuerdo registrado"
+    AGREEMENT_UPDATED = "agreement.updated", "Acuerdo editado"
+    AGREEMENT_STATUS_CHANGED = "agreement.status_changed", "Cambio de estado de acuerdo"
 
 
 class AuditQuerySet(models.QuerySet):

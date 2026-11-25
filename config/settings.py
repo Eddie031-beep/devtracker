@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "apps.issues",
     "apps.risks",
     "apps.scope",
+    "apps.meetings",
 ]
 
 MIDDLEWARE = [
@@ -192,6 +193,7 @@ SPECTACULAR_SETTINGS = {
         "IssueStatusEnum": "apps.issues.models.Issue.Status",
         "RiskStatusEnum": "apps.risks.models.Risk.Status",
         "ChangeRequestStatusEnum": "apps.scope.models.ChangeRequest.Status",
+        "AgreementStatusEnum": "apps.meetings.models.Agreement.Status",
         "DecisionEnum": "apps.evaluations.models.Evaluation.Decision",
     },
 }

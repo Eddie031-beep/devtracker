@@ -47,7 +47,8 @@ class Command(BaseCommand):
 
     @staticmethod
     def loaders():
-        return [("Incidencias", load_issues), ("Riesgos", load_risks), ("Cambios de alcance", load_changes)]
+        return [("Incidencias", load_issues), ("Riesgos", load_risks), ("Cambios de alcance", load_changes),
+                ("Reuniones y acuerdos", load_meetings)]
 
 
 def load_issues(command, project, people):
@@ -166,4 +167,48 @@ def load_changes(command, project, people):
     three = propose(b, "Agregar modo sin conexión", "Que la app funcione sin internet.",
                     "Algunas aulas no tienen buena señal.", "Demasiado trabajo para el tiempo que queda.", "high")
     withdraw_change(three, b)
+    return True
+
+
+def load_meetings(command, project, people):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.meetings.services import add_agreement, create_meeting, update_agreement
+
+    if project.meetings.exists():
+        return False
+    leader, evaluator = people["leader"], people["evaluator"]
+    members = people["members"]
+    a, b = members[0], members[1]
+    c = members[2] if len(members) > 2 else a
+    now, today = timezone.now(), timezone.localdate()
+
+    first = create_meeting(
+        project, leader, title="Arranque del examen semestral", held_at=now - timedelta(days=12),
+        location="Aula 3-205", participants=[leader, *members, evaluator],
+        summary="Se leyó el enunciado del semestral y se acordó un PR por módulo.\n"
+                "Tailwind se compila sin Node para no complicar Railway.\n"
+                "El profesor pidió que cada decisión quede en la auditoría.",
+    )
+    done = add_agreement(first, leader, description="Preparar la base con Tailwind y el registro de módulos.",
+                         responsible=leader, due_date=today - timedelta(days=9))
+    update_agreement(done, leader, status="done")
+    # Queda pendiente con la fecha vencida, para ver el aviso «Vencido» en la lista
+    add_agreement(first, leader, description="Escribir las pruebas del flujo de incidencias.",
+                  responsible=a, due_date=today - timedelta(days=2))
+    add_agreement(first, leader, description="Revisar la matriz de riesgos con datos reales.",
+                  responsible=b, due_date=today + timedelta(days=3))
+
+    second = create_meeting(
+        project, a, title="Revisión de avance", held_at=now - timedelta(days=3), location="Google Meet",
+        participants=[leader, *members],
+        summary="Incidencias y riesgos ya funcionan. Falta probar cambios de alcance en el teléfono.",
+    )
+    ok = add_agreement(second, a, description="Probar todas las pantallas a 390 px en modo oscuro.",
+                       responsible=c, due_date=today + timedelta(days=1))
+    update_agreement(ok, c, status="done")
+    add_agreement(second, leader, description="Ensayar la demostración del examen.", responsible=leader,
+                  due_date=today + timedelta(days=4))
     return True

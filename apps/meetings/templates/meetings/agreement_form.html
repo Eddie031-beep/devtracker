@@ -1,0 +1,17 @@
+{% extends "web/base.html" %}
+{% block title %}Editar acuerdo{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title="Editar acuerdo" subtitle=meeting.title %}
+<form method="post" class="dt-card tw-max-w-2xl">{% csrf_token %}
+  {% include "web/_tw_field.html" with field=form.description %}
+  <div class="tw-grid tw-gap-x-4 sm:tw-grid-cols-2">
+    {% include "web/_tw_field.html" with field=form.responsible %}
+    {% include "web/_tw_field.html" with field=form.due_date %}
+  </div>
+  {% if form.responsible.field.disabled %}<p class="dt-help tw-mb-4">Solo el líder puede reasignar el acuerdo.</p>{% endif %}
+  <div class="tw-flex tw-flex-wrap tw-gap-2">
+    <button type="submit" class="btn">Guardar cambios</button>
+    <a href="{% url 'meetings:detail' meeting.pk %}" class="btn secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
