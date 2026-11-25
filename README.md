@@ -600,7 +600,7 @@ Nadie sube cambios con la cuenta de otro: así las métricas y la auditoría ref
 | **3. Métricas y evaluación** | Métricas por integrante, dashboard por rol, evaluación | ✅ Completa |
 | **4. Should / Could Have** | Docs de API, notificaciones (app y correo), reportes (CSV e imprimible), login con GitHub (OAuth2) | ✅ Completa |
 | **Cierre (v1.0.0)** | Interfaz final, pull requests e historial de ramas, administración desde la web, recuperar contraseña en la web, Excel, modo oscuro, calendario iCal, Gemini opcional | ✅ Completa |
-| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | 🔍 En revisión (PR #44–#48) |
+| **5. Examen semestral** | Tailwind CSS, incidencias de software, riesgos del proyecto, solicitudes de cambio de alcance, reuniones y acuerdos | ✅ Completa (PR #44–#48) |
 
 ### Etapa 1: quién hace qué
 
