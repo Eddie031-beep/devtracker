@@ -65,6 +65,10 @@ class IssueApiTests(ProjectFixtureMixin, TestCase):
         self.assertEqual(self.api(self.member2).patch(base, {"title": "Otro título"}, format="json").status_code, 403)
         r = self.api(self.member).patch(base, {"title": "CSV vacío al exportar", "status": "verified"}, format="json")
         self.assertEqual((r.status_code, r.data["title"], r.data["status"]), (200, "CSV vacío al exportar", "open"))
+        # Cambiar el responsable por aquí no se acepta (ni se ignora en silencio): tiene su endpoint
+        r = self.api(self.leader).patch(base, {"assignee_id": self.member2.pk}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("assign", str(r.data["assignee_id"]))
         self.assertEqual(self.api(self.member).delete(base).status_code, 403)
         self.assertEqual(self.api(self.leader).delete(base).status_code, 204)
         self.assertTrue(Issue.all_objects.get(pk=issue_id).deleted_at)
