@@ -49,7 +49,7 @@ TARGET_LABELS = {
     "project": "Proyecto", "milestone": "Hito", "deliverable": "Entregable", "projectmembership": "Integrante",
     "deliverableversion": "Versión", "evaluation": "Evaluación", "user": "Integrante",
     # Examen semestral
-    "issue": "Incidencia", "risk": "Riesgo", "mitigation": "Mitigación",
+    "issue": "Incidencia", "risk": "Riesgo", "mitigation": "Mitigación", "changerequest": "Cambio de alcance",
 }
 
 

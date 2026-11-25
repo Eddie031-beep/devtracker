@@ -25,5 +25,5 @@ class PersonSerializer(serializers.ModelSerializer):
         model = get_user_model()
         fields = ["id", "username", "name"]
 
-    def get_name(self, user):
+    def get_name(self, user) -> str:
         return user.get_full_name() or user.username

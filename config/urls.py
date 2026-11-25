@@ -10,6 +10,7 @@ urlpatterns = [
     # Examen semestral: módulos de gestión del proyecto
     path("", include("apps.issues.urls_web")),
     path("", include("apps.risks.urls_web")),
+    path("", include("apps.scope.urls_web")),
     path("admin/", admin.site.urls),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
@@ -25,6 +26,7 @@ urlpatterns = [
     path("api/integrations/", include("apps.integrations.urls")),
     path("api/", include("apps.issues.urls")),
     path("api/", include("apps.risks.urls")),
+    path("api/", include("apps.scope.urls")),
     # Documentación de la API: esquema OpenAPI y Swagger UI (públicos, solo describen los endpoints)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api_docs"),

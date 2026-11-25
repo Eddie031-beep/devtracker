@@ -433,6 +433,27 @@ y las reglas de `services.py`). Datos de ejemplo: `python manage.py cargar_semes
 | GET, POST | `/api/risks/<id>/mitigations/` | Crear: líder o responsable |
 | POST | `/api/mitigations/<id>/done/` | Responsable de la medida, del riesgo o líder |
 
+### 3. Solicitudes de cambio de alcance
+
+`/proyectos/<id>/cambios/` · código `apps/scope/`
+
+- Los **estudiantes proponen** un cambio con **descripción, justificación, impacto esperado** (texto y nivel
+  bajo/medio/alto) y, si quieren, los entregables que tocaría.
+- El **evaluador aprueba o rechaza** con un comentario obligatorio; la decisión guarda quién y cuándo y es
+  definitiva. Quien propuso puede editarla o **retirarla** mientras está pendiente.
+- **Se conserva todo**: las solicitudes no se borran (ni desde el admin) y, una vez cerradas, el modelo no
+  permite modificarlas. Todo queda también en la auditoría.
+- **No modifica los entregables**: la lista de entregables es solo una referencia. Si el cambio se aprueba,
+  el líder los ajusta a mano y esa edición queda en la auditoría como cualquier otra.
+- Avisos al evaluador y al líder con cada propuesta, y a quien propuso con la decisión.
+
+| Método | Ruta | Quién |
+|---|---|---|
+| GET, POST | `/api/projects/<id>/change-requests/` | Ver: integrante · Proponer: estudiante (filtro `status`) |
+| GET, PATCH | `/api/change-requests/<id>/` | Editar: quien la propuso, si está pendiente (no hay DELETE) |
+| POST | `/api/change-requests/<id>/decide/` | Evaluador (`decision`: approved/rejected, `comment`) |
+| POST | `/api/change-requests/<id>/withdraw/` | Quien la propuso |
+
 ## Cobertura del MoSCoW (Laboratorio 3)
 
 | # | Requisito | Prioridad | Dónde se ve |

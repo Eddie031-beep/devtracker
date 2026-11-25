@@ -1,0 +1,81 @@
+{% extends "web/base.html" %}
+{% block title %}{{ change.code }} · {{ change.title }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title=change.title %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_360px]">
+  <div class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card">
+      <div class="tw-mb-4 tw-flex tw-flex-wrap tw-items-center tw-gap-2">
+        <span class="tw-font-mono tw-text-sm tw-text-muted">{{ change.code }}</span>
+        <span class="dt-chip {{ change.status_chip }}">{{ change.get_status_display }}</span>
+        <span class="dt-chip {{ change.impact_chip }}">Impacto {{ change.get_impact_level_display|lower }}</span>
+      </div>
+      <h2 class="tw-mb-2 tw-text-base">Cambio propuesto</h2>
+      <p class="tw-mb-5 tw-whitespace-pre-line tw-break-words">{{ change.description }}</p>
+      <h2 class="tw-mb-2 tw-text-base">Justificación</h2>
+      <p class="tw-mb-5 tw-whitespace-pre-line tw-break-words">{{ change.justification }}</p>
+      <h2 class="tw-mb-2 tw-text-base">Impacto esperado</h2>
+      <p class="tw-whitespace-pre-line tw-break-words">{{ change.expected_impact }}</p>
+      {% if can_edit %}
+      <div class="tw-mt-5 tw-flex tw-flex-wrap tw-gap-2">
+        <a href="{% url 'scope:edit' change.pk %}" class="btn secondary sm">Editar</a>
+        <form method="post" action="{% url 'scope:withdraw' change.pk %}" onsubmit="return confirm('¿Retirar {{ change.code }}? Quedará registrada como retirada.')">{% csrf_token %}
+          <button type="submit" class="btn danger sm">Retirar solicitud</button>
+        </form>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="dt-card" aria-labelledby="del-title">
+      <h2 id="del-title" class="tw-mb-1 tw-text-base">Entregables referenciados</h2>
+      <p class="dt-help tw-mb-3 tw-mt-0">Solo referencia: la decisión no los modifica.</p>
+      {% if deliverables %}
+      <ul class="tw-m-0 tw-flex tw-list-none tw-flex-col tw-gap-1 tw-p-0 tw-text-sm">
+        {% for d in deliverables %}
+        <li><a href="{% url 'web:deliverable' d.pk %}"><span class="tw-font-mono tw-text-xs">#D{{ d.pk }}</span> {{ d.title }}</a> <span class="tw-text-muted">· {{ d.milestone.title }} · {{ d.get_status_display }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="tw-text-sm tw-text-muted">No menciona entregables.</p>{% endif %}
+    </section>
+  </div>
+
+  <aside class="tw-flex tw-min-w-0 tw-flex-col tw-gap-6">
+    <section class="dt-card">
+      <dl class="tw-m-0 tw-grid tw-grid-cols-[auto_1fr] tw-gap-x-4 tw-gap-y-2 tw-text-sm">
+        <dt class="tw-text-muted">Propuesta por</dt><dd class="tw-m-0">{{ change.proposed_by.get_full_name|default:change.proposed_by.username }}</dd>
+        <dt class="tw-text-muted">Fecha</dt><dd class="tw-m-0">{{ change.created_at|date:"d M Y · H:i" }}</dd>
+        {% if change.decided_by %}
+        <dt class="tw-text-muted">Decidida por</dt><dd class="tw-m-0">{{ change.decided_by.get_full_name|default:change.decided_by.username }}</dd>
+        <dt class="tw-text-muted">Decisión</dt><dd class="tw-m-0">{{ change.decided_at|date:"d M Y · H:i" }}</dd>
+        {% endif %}
+      </dl>
+    </section>
+
+    {% if change.decided_by %}
+    <section class="dt-card tw-border-l-4 {% if change.status == 'approved' %}tw-border-l-green-500{% else %}tw-border-l-red-500{% endif %}" aria-labelledby="dec-title">
+      <h2 id="dec-title" class="tw-mb-2 tw-text-base">Decisión del evaluador</h2>
+      <p class="tw-mb-2"><span class="dt-chip {{ change.status_chip }}">{{ change.get_status_display }}</span></p>
+      <p class="tw-whitespace-pre-line tw-break-words tw-text-sm">{{ change.decision_comment }}</p>
+      {% if change.status == 'approved' %}<p class="dt-help">Si hace falta, el líder ajusta los entregables desde el proyecto; esos cambios quedan en la auditoría.</p>{% endif %}
+    </section>
+    {% elif can_decide %}
+    <section class="dt-card" aria-labelledby="decide-title">
+      <h2 id="decide-title" class="tw-mb-3 tw-text-base">Decidir</h2>
+      <form method="post" action="{% url 'scope:decide' change.pk %}">{% csrf_token %}
+        {% include "web/_tw_field.html" with field=decision_form.comment %}
+        <div class="tw-flex tw-gap-2">
+          <button type="submit" name="decision" value="approved" class="btn tw-flex-1">Aprobar</button>
+          <button type="submit" name="decision" value="rejected" class="btn danger tw-flex-1">Rechazar</button>
+        </div>
+        <p class="dt-help">La decisión es definitiva y no modifica los entregables.</p>
+      </form>
+    </section>
+    {% elif change.status == 'withdrawn' %}
+    <section class="dt-card"><p class="tw-text-sm tw-text-muted">Quien la propuso la retiró antes de que se decidiera.</p></section>
+    {% else %}
+    <section class="dt-card"><p class="tw-text-sm tw-text-muted">Esperando la decisión del evaluador.</p></section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
