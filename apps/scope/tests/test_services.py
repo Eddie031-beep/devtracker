@@ -87,6 +87,13 @@ class ChangeRequestServiceTests(ProjectFixtureMixin, TestCase):
             change.delete()
         with self.assertRaises(ImmutableChangeRequestError):
             ChangeRequest.objects.all().delete()
+        # Tampoco en bloque: update() y bulk_update() se saltarían save()
+        with self.assertRaises(ImmutableChangeRequestError):
+            ChangeRequest.objects.filter(pk=change.pk).update(decision_comment="reescrito")
+        with self.assertRaises(ImmutableChangeRequestError):
+            ChangeRequest.objects.bulk_update([change], ["decision_comment"])
+        change.refresh_from_db()
+        self.assertEqual(change.decision_comment, "Es parte del alcance mínimo")
         self.assertEqual(AuditLog.objects.filter(action=Action.CHANGE_DECIDED).count(), 1)
 
     def test_editar_y_retirar_solo_quien_propuso(self):

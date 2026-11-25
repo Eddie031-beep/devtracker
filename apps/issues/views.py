@@ -87,6 +87,9 @@ class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         issue = self.get_object()
+        if "assignee_id" in request.data:
+            # El responsable cambia con su propio endpoint (solo el líder): aquí no se ignora en silencio
+            raise exceptions.ValidationError({"assignee_id": "Usa POST /api/issues/<id>/assign/ para cambiar el responsable."})
         serializer = self.get_serializer(issue, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = {k: v for k, v in serializer.validated_data.items() if k in services.EDITABLE_FIELDS}
