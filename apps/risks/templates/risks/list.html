@@ -1,0 +1,59 @@
+{% extends "web/base.html" %}
+{% load web_extras %}
+{% block title %}Riesgos · {{ project.name }}{% endblock %}
+{% block content %}
+{% include "web/_module_header.html" with title="Riesgos" subtitle="Nivel = probabilidad × impacto (escala de 1 a 3). Bajo: 1–2 · Medio: 3–4 · Alto: 6–9." %}
+
+<div class="tw-grid tw-items-start tw-gap-6 lg:tw-grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+  <section class="dt-card" aria-labelledby="matrix-title">
+    <div class="tw-mb-3 tw-flex tw-flex-wrap tw-items-center tw-justify-between tw-gap-2">
+      <h2 id="matrix-title" class="tw-text-base">Matriz de riesgos abiertos</h2>
+      <div class="tw-flex tw-gap-1.5">
+        {% for key, label in level_labels.items %}<span class="dt-chip {{ level_chips|get_item:key }}">{{ label }}: {{ levels|get_item:key }}</span>{% endfor %}
+      </div>
+    </div>
+    {% include "risks/_matrix.html" with link=True %}
+    <p class="dt-help">Toca una celda para ver sus riesgos.</p>
+  </section>
+
+  {% if form %}
+  <details class="dt-card"{% if open_form or form.errors %} open{% endif %}>
+    <summary class="tw-cursor-pointer tw-font-semibold">Registrar riesgo</summary>
+    <form method="post" class="tw-mt-4">{% csrf_token %}
+      {% include "risks/_risk_fields.html" %}
+      <button type="submit" class="btn">Registrar</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+<section class="dt-card-flush">
+  <form method="get" class="tw-flex tw-flex-wrap tw-items-end tw-gap-3 tw-border-0 tw-border-b tw-border-solid tw-border-line tw-p-4">
+    <div class="tw-min-w-[140px] tw-flex-1"><label class="dt-label" for="{{ filters.status.id_for_label }}">Estado</label>{{ filters.status }}</div>
+    <div class="tw-min-w-[140px] tw-flex-1"><label class="dt-label" for="{{ filters.level.id_for_label }}">Nivel</label>{{ filters.level }}</div>
+    <div class="tw-min-w-[140px] tw-flex-1"><label class="dt-label" for="{{ filters.owner.id_for_label }}">Responsable</label>{{ filters.owner }}</div>
+    <button type="submit" class="btn secondary">Filtrar</button>
+    {% if filtered %}<a href="?" class="tw-text-sm">Quitar filtros</a>{% endif %}
+  </form>
+  {% if risks %}
+  <div class="tw-overflow-x-auto">
+    <table class="dt-table">
+      <thead><tr><th>Riesgo</th><th>P × I</th><th>Nivel</th><th>Estado</th><th>Responsable</th></tr></thead>
+      <tbody>
+        {% for risk in risks %}
+        <tr>
+          <td class="tw-min-w-[220px]"><a href="{% url 'risks:detail' risk.pk %}"><span class="tw-font-mono tw-text-xs">{{ risk.code }}</span> {{ risk.title }}</a></td>
+          <td class="tw-whitespace-nowrap tw-font-mono tw-text-xs">{{ risk.probability }} × {{ risk.impact }} = {{ risk.score }}</td>
+          <td><span class="dt-chip {{ risk.level_chip }}">{{ risk.level_label }}</span></td>
+          <td><span class="dt-chip {{ risk.status_chip }}">{{ risk.get_status_display }}</span></td>
+          <td>{{ risk.owner.get_full_name|default:risk.owner.username }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="tw-p-6 tw-text-center tw-text-muted">{% if filtered %}Ningún riesgo coincide con los filtros.{% else %}Aún no hay riesgos registrados.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

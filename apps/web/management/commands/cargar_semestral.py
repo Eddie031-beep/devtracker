@@ -47,7 +47,7 @@ class Command(BaseCommand):
 
     @staticmethod
     def loaders():
-        return [("Incidencias", load_issues)]
+        return [("Incidencias", load_issues), ("Riesgos", load_risks)]
 
 
 def load_issues(command, project, people):
@@ -88,4 +88,45 @@ def load_issues(command, project, people):
     issue(a, "El nombre del proyecto largo rompe la migaja de pan", "low",
           "Con nombres de más de 60 caracteres la ruta de navegación se sale de la pantalla.",
           "1. Crear un proyecto con un nombre muy largo\n2. Entrar a una incidencia")
+    return True
+
+
+def load_risks(command, project, people):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.risks.services import add_mitigation, change_status, create_risk, set_mitigation_done
+
+    if project.risks.exists():
+        return False
+    leader = people["leader"]
+    a, b = people["members"][0], people["members"][1]
+    c = people["members"][2] if len(people["members"]) > 2 else a
+    soon = timezone.localdate() + timedelta(days=5)
+
+    def risk(title, description, probability, impact, owner):
+        return create_risk(project, leader, title=title, description=description,
+                           probability=probability, impact=impact, owner=owner)
+
+    one = risk("Railway suspende el plan gratuito antes de la presentación",
+               "Si se agotan los créditos, la demo en línea deja de responder el día del examen.", 2, 3, leader)
+    first = add_mitigation(one, leader, description="Tener la app corriendo en local como respaldo.", responsible=a, due_date=soon)
+    set_mitigation_done(first, a)
+    add_mitigation(one, leader, description="Revisar el consumo de créditos cada semana.", responsible=leader)
+
+    two = risk("Un integrante no puede seguir en el curso",
+               "Sus módulos quedarían sin responsable y habría que repartirlos.", 1, 3, b)
+    add_mitigation(two, b, description="Documentar cada módulo en el README y en los PR.", responsible=b, due_date=soon)
+
+    three = risk("Conflicto de horarios para las reuniones",
+                 "No coincidimos todos para revisar avances.", 3, 1, c)
+    change_status(three, c, "occurred", "La reunión del martes se canceló por falta de quórum.")
+    add_mitigation(three, c, description="Reuniones cortas en línea los domingos.", responsible=c)
+
+    four = risk("Cambios en la API de GitHub", "GitHub cambia el formato del webhook y deja de entregar los PR.", 1, 2, a)
+    change_status(four, a, "closed", "Se fijó la versión de la API y hay pruebas del webhook.")
+
+    risk("Retraso en las evaluaciones del profesor",
+         "Si las revisiones llegan tarde no da tiempo de corregir antes del cierre.", 2, 2, b)
     return True

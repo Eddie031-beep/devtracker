@@ -40,6 +40,13 @@ class Action(models.TextChoices):
     ISSUE_ASSIGNED = "issue.assigned", "Responsable de incidencia"
     ISSUE_STATUS_CHANGED = "issue.status_changed", "Cambio de estado de incidencia"
     ISSUE_DELETED = "issue.deleted", "Incidencia eliminada"
+    # Examen semestral: riesgos del proyecto
+    RISK_CREATED = "risk.created", "Riesgo registrado"
+    RISK_UPDATED = "risk.updated", "Riesgo editado"
+    RISK_STATUS_CHANGED = "risk.status_changed", "Cambio de estado de riesgo"
+    RISK_DELETED = "risk.deleted", "Riesgo eliminado"
+    MITIGATION_ADDED = "mitigation.added", "Medida de mitigación registrada"
+    MITIGATION_UPDATED = "mitigation.updated", "Medida de mitigación actualizada"
 
 
 class AuditQuerySet(models.QuerySet):
